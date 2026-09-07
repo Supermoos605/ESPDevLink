@@ -12,6 +12,7 @@ except ImportError:
     RTCSessionDescription = None
     candidate_from_sdp = None
 
+from ..config import CAPTURE_FPS
 from .desktop_audio import DesktopAudioTrack
 from .desktop_video import DesktopVideoTrack
 from .input import normalize_input
@@ -94,7 +95,10 @@ class WebRTCPeer:
                 self.input_backend.handle(event)
 
         if self.video_mode == "desktop":
-            self.video_track = DesktopVideoTrack(display_index=self.display_index)
+            self.video_track = DesktopVideoTrack(
+                display_index=self.display_index,
+                target_fps=CAPTURE_FPS,
+            )
             connection.addTrack(self.video_track)
         elif self.video_mode == "test":
             self.video_track = TestVideoTrack()
@@ -104,8 +108,6 @@ class WebRTCPeer:
             try:
                 self.audio_track = DesktopAudioTrack()
             except RuntimeError as exc:
-                # Audio is optional: video streaming and the test stream remain
-                # usable when SoundCard/WASAPI is unavailable.
                 self.audio_error = str(exc)
             else:
                 connection.addTrack(self.audio_track)
