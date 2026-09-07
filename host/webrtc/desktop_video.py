@@ -14,7 +14,7 @@ except ImportError:
 class DesktopVideoTrack(VideoStreamTrack if VideoStreamTrack is not None else object):
     """Expose the newest DXcam RGB frame as an aiortc video track."""
 
-    def __init__(self, display_index: int = 0, target_fps: int = 60) -> None:
+    def __init__(self, display_index: int = 0, target_fps: int = 30) -> None:
         if VideoStreamTrack is None or VideoFrame is None:
             raise RuntimeError("aiortc and PyAV are required for desktop WebRTC video")
         super().__init__()
