@@ -5,6 +5,10 @@ const hint = document.getElementById('gameHint');
 const meta = document.getElementById('hostMeta');
 const state = document.getElementById('state');
 
+video.autoplay = true;
+video.muted = true;
+video.playsInline = true;
+
 let hostBase = '';
 let hostSession = '';
 let peerId = null;
@@ -233,12 +237,23 @@ async function createPeer() {
   bindInput();
   stopped = false;
 
-  peer.ontrack = (event) => {
-    if (event.streams[0]) {
-      video.srcObject = event.streams[0];
-      placeholder.style.display = 'none';
+  peer.ontrack = async (event) => {
+    if (!event.streams[0]) return;
+
+    video.srcObject = event.streams[0];
+    placeholder.style.display = 'none';
+
+    try {
+      await video.play();
       paint({ state: 'streaming', game: selected });
+    } catch (error) {
+      console.error('[ESPLink] Video playback failed:', error);
+      hint.textContent = 'Click the video to start playback.';
     }
+  };
+
+  video.onclick = () => {
+    video.play().catch((error) => console.error('[ESPLink] Video playback failed:', error));
   };
 
   peer.onconnectionstatechange = () => {
