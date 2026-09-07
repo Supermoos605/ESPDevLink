@@ -1,0 +1,9 @@
+# Optional Windows-host WebRTC/media dependencies.
+# The rest of the ESPLink host can run without these packages, but real browser
+# WebRTC streaming requires them.
+aiortc>=1.13,<2
+av>=14,<17
+# Windows desktop capture backend.
+dxcam>=0.0.5
+# Windows WASAPI loopback audio capture.
+soundcard>=0.2,<0.3

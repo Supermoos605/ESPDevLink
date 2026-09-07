@@ -1,0 +1,10 @@
+{
+  "games": [
+    {
+      "id": "desktop",
+      "name": "Desktop",
+      "launcher": "windows",
+      "executable": ""
+    }
+  ]
+}

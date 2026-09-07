@@ -1,0 +1,11 @@
+# Optional Windows-host WebRTC media stack
+aiortc>=1.13,<2
+av>=14,<17
+numpy>=1.26
+# Windows desktop capture
+# dxcam>=0.0.5
+# Windows WASAPI loopback audio
+# soundcard>=0.2,<0.3
+
+# The primary optional dependency file is host/requirements.txt. This file is
+# kept as a lightweight reference for the streaming-specific stack.
