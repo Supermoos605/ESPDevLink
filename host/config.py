@@ -9,10 +9,12 @@ import socket
 DEFAULT_ESP32_URL = "http://steamlink.local"
 DEFAULT_HEARTBEAT_SECONDS = 2
 DEFAULT_COMPUTER_NAME = socket.gethostname()
+DEFAULT_CAPTURE_FPS = 30
 
 ESP32_URL = os.environ.get("ESPLINK_ESP32", DEFAULT_ESP32_URL).rstrip("/")
 COMPUTER_NAME = os.environ.get("ESPLINK_COMPUTER_NAME", DEFAULT_COMPUTER_NAME).strip() or DEFAULT_COMPUTER_NAME
 HEARTBEAT_SECONDS = max(1, float(os.environ.get("ESPLINK_HEARTBEAT", DEFAULT_HEARTBEAT_SECONDS)))
+CAPTURE_FPS = max(1, int(os.environ.get("ESPLINK_CAPTURE_FPS", DEFAULT_CAPTURE_FPS)))
 ALLOW_CONNECTIONS = os.environ.get("ESPLINK_ALLOW_CONNECTIONS", "1").lower() not in {"0", "false", "no", "off"}
 AUTHORIZATION_CODE = os.environ.get("ESPLINK_AUTH_CODE", "").strip()
 
