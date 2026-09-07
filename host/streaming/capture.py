@@ -1,8 +1,8 @@
-"""Windows desktop capture backend abstraction for ESPLink."""
+"""Windows-host-side desktop capture backend abstraction for ESPLink."""
 from dataclasses import dataclass
 import platform
-_DXCAM_IMPORT_ERROR = ""
 
+_DXCAM_IMPORT_ERROR = ""
 import sys
 
 # DXcam/comtypes must use the same COM mode as the host's Windows threads.
@@ -10,13 +10,9 @@ sys.coinit_flags = 0
 
 try:
     import dxcam
-except ImportError:
+except ImportError as exc:
     dxcam = None
-
-try:
-    import dxcam
-except ImportError:
-    dxcam = None
+    _DXCAM_IMPORT_ERROR = str(exc)
 
 
 @dataclass(frozen=True)
@@ -48,7 +44,7 @@ def get_capture_info() -> CaptureInfo:
 class WindowsCaptureSource:
     """Capture the selected Windows display as RGB frames using DXcam."""
 
-    def __init__(self, display_index: int = 0, target_fps: int = 60) -> None:
+    def __init__(self, display_index: int = 0, target_fps: int = 30) -> None:
         if display_index < 0:
             raise ValueError("Display index cannot be negative")
         if target_fps <= 0:
