@@ -1,8 +1,10 @@
 #include <Arduino.h>
 
 // ESPDevLink firmware entry point.
-// Replace the placeholder values below with your local settings in a separate
-// credentials header before connecting the device to a network.
+//
+// This file intentionally uses placeholders so the repository contains no
+// Wi-Fi credentials or access codes. Replace these values only in your local
+// working copy before building the firmware.
 
 namespace config {
 constexpr const char* WIFI_SSID = "YOUR_WIFI_NAME";
