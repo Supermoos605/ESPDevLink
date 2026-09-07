@@ -67,7 +67,8 @@ class HostSignaling:
         if self.enable_rtc:
             try:
                 rtc = WebRTCPeer(video_mode=mode, input_enabled=self.input_enabled)
-            except RuntimeError:
+            except RuntimeError as exc:
+                print(f"[WebRTC] Peer initialization failed: {exc}")
                 rtc = None
         peer = HostPeer(peer_id=peer_id, session_id=session_id.strip(), rtc=rtc)
         self.peers[peer_id] = peer
