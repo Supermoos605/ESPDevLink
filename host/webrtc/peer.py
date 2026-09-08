@@ -5,14 +5,16 @@ import json
 import threading
 
 try:
-    from aiortc import RTCPeerConnection, RTCSessionDescription
+    from aiortc import RTCPeerConnection, RTCConfiguration, RTCIceServer, RTCSessionDescription
     from aiortc.sdp import candidate_from_sdp
 except ImportError:
     RTCPeerConnection = None
+    RTCConfiguration = None
+    RTCIceServer = None
     RTCSessionDescription = None
     candidate_from_sdp = None
 
-from ..config import CAPTURE_FPS
+from ..config import CAPTURE_FPS, ICE_SERVERS
 from .desktop_audio import DesktopAudioTrack
 from .desktop_video import DesktopVideoTrack
 from .input import normalize_input
@@ -66,8 +68,14 @@ class WebRTCPeer:
         self._loop.run_forever()
         self._loop.close()
 
+    @staticmethod
+    def _ice_configuration():
+        servers = [RTCIceServer(**server) for server in ICE_SERVERS]
+        return RTCConfiguration(iceServers=servers) if servers else None
+
     async def _create_connection(self):
-        connection = RTCPeerConnection()
+        configuration = self._ice_configuration()
+        connection = RTCPeerConnection(configuration=configuration) if configuration else RTCPeerConnection()
 
         @connection.on("datachannel")
         def on_datachannel(channel):
