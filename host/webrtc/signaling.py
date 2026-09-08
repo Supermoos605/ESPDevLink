@@ -39,20 +39,11 @@ class HostPeer:
 
 
 class HostSignaling:
-    def __init__(
-        self,
-        enable_rtc: bool = True,
-        video_mode: str = "desktop",
-        input_enabled: bool | None = None,
-    ) -> None:
+    def __init__(self, enable_rtc: bool = True, video_mode: str = "desktop", input_enabled: bool | None = None) -> None:
         self.peers: dict[str, HostPeer] = {}
         self.enable_rtc = enable_rtc
         self.video_mode = video_mode
-        self.input_enabled = (
-            _env_bool("ESPLINK_INPUT_ENABLED")
-            if input_enabled is None
-            else bool(input_enabled)
-        )
+        self.input_enabled = _env_bool("ESPLINK_INPUT_ENABLED") if input_enabled is None else bool(input_enabled)
 
     def create_peer(self, session_id: str, video_mode: str | None = None) -> HostPeer:
         if not isinstance(session_id, str) or not session_id.strip():
@@ -95,6 +86,8 @@ class HostSignaling:
             candidate = message.get("candidate")
             if not isinstance(candidate, dict):
                 raise ValueError("ICE candidate must be an object")
+            # Browsers send an empty candidate object to mark the end of
+            # trickle ICE. The peer layer treats it as a no-op.
         peer.receive(message)
 
         if message_type == "offer" and peer.rtc is not None:
@@ -103,11 +96,7 @@ class HostSignaling:
             except Exception as exc:
                 peer.state = "error"
                 print(f"[WebRTC] Offer negotiation failed: {exc!r}")
-                peer.send({
-                    "type": "error",
-                    "code": "webrtc_negotiation_failed",
-                    "message": "WebRTC negotiation failed. Check the host terminal for details.",
-                })
+                peer.send({"type": "error", "code": "webrtc_negotiation_failed", "message": "WebRTC negotiation failed. Check the host terminal for details."})
             else:
                 peer.send(answer)
                 peer.state = "connected"
@@ -116,18 +105,10 @@ class HostSignaling:
                 peer.rtc.add_ice_candidate(message["candidate"])
             except Exception as exc:
                 print(f"[WebRTC] ICE candidate rejected: {exc!r}")
-                peer.send({
-                    "type": "error",
-                    "code": "webrtc_ice_failed",
-                    "message": "WebRTC ICE candidate was rejected. Check the host terminal for details.",
-                })
+                peer.send({"type": "error", "code": "webrtc_ice_failed", "message": "WebRTC ICE candidate was rejected. Check the host terminal for details."})
         elif message_type == "offer" and peer.rtc is None:
             peer.state = "error"
-            peer.send({
-                "type": "error",
-                "code": "webrtc_unavailable",
-                "message": "WebRTC peer initialization failed. Check the host terminal for the actual error.",
-            })
+            peer.send({"type": "error", "code": "webrtc_unavailable", "message": "WebRTC peer initialization failed. Check the host terminal for the actual error."})
         return peer
 
     def stats(self, peer_id: str, session_id: str) -> dict:
