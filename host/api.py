@@ -79,12 +79,7 @@ class HostAPI:
         return result
 
     def webrtc_config(self) -> dict:
-        """Return browser ICE configuration from environment variables.
-
-        ``ESPLINK_ICE_SERVERS`` accepts a JSON array of RTCIceServer-like
-        objects, allowing authenticated STUN/TURN entries. The older
-        ``ESPLINK_STUN_URL`` comma-separated variable remains supported.
-        """
+        """Return browser ICE configuration from environment variables."""
         servers: list[dict] = []
         raw_json = os.environ.get("ESPLINK_ICE_SERVERS", "").strip()
         if raw_json:
@@ -107,7 +102,12 @@ class HostAPI:
 
     def create_peer(self, session_id: str, video_mode: str | None = None) -> dict:
         peer = self.signaling.create_peer(session_id, video_mode=video_mode)
-        result = {"peer_id": peer.peer_id, "state": peer.state, "webrtc": peer.rtc is not None}
+        result = {
+            "peer_id": peer.peer_id,
+            "state": peer.state,
+            "webrtc": peer.rtc is not None,
+            **self.webrtc_config(),
+        }
         if peer.rtc is not None:
             result["input"] = peer.rtc.input_backend.status
             result["audio"] = {
