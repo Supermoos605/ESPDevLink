@@ -24,12 +24,23 @@ class HostSignalingTests(unittest.TestCase):
         signaling = HostSignaling(enable_rtc=False)
         peer = signaling.create_peer("session-a")
         result = signaling.signal(peer.peer_id, "session-a", {"type": "offer", "sdp": "test"})
-        self.assertEqual(result.state, "negotiating")
+        self.assertEqual(result.state, "error")
         self.assertEqual(result.outbound, [{
             "type": "error",
             "code": "webrtc_unavailable",
-            "message": "Real WebRTC requires the optional aiortc host dependency.",
+            "message": "WebRTC peer initialization failed. Check the host terminal for the actual error.",
         }])
+
+    def test_peer_initialization_failure_is_reported(self):
+        with patch("host.webrtc.signaling.WebRTCPeer", side_effect=RuntimeError("Capture is already running")):
+            signaling = HostSignaling(enable_rtc=True)
+            peer = signaling.create_peer("session-a")
+
+        self.assertIsNone(peer.rtc)
+        result = signaling.signal(peer.peer_id, "session-a", {"type": "offer", "sdp": "test"})
+        self.assertEqual(result.state, "error")
+        self.assertEqual(result.outbound[-1]["code"], "webrtc_unavailable")
+        self.assertNotIn("aiortc", result.outbound[-1]["message"])
 
     def test_empty_offer_sdp_is_rejected_by_rtc_peer(self):
         signaling = HostSignaling(enable_rtc=False)
