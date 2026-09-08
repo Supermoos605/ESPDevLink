@@ -174,6 +174,7 @@ class WebRTCPeer:
             "connection_state": self.connection.connectionState,
             "ice_connection_state": self.connection.iceConnectionState,
             "signaling_state": self.connection.signalingState,
+            "ice_server_count": len(ICE_SERVERS),
             "input_events": queued_input,
             "input_backend": self.input_backend.status,
             "audio_capture": {"enabled": self.audio_enabled and self.audio_track is not None, "error": self.audio_error},
