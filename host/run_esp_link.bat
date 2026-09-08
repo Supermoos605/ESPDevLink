@@ -31,11 +31,13 @@ echo 3. Start ESPLink simulator
 echo 4. Install host dependencies
 echo 5. Run tests
 echo 6. Open local web interface
-echo 7. Exit
+echo 7. Create virtual environment
+echo 8. Exit
 echo.
-choice /C 1234567 /N /M "Choose an operation: "
+choice /C 12345678 /N /M "Choose an operation: "
 
-if errorlevel 7 exit /b 0
+if errorlevel 8 exit /b 0
+if errorlevel 7 goto venv
 if errorlevel 6 goto open
 if errorlevel 5 goto tests
 if errorlevel 4 goto install
@@ -71,14 +73,13 @@ goto menu
 
 :install
 cls
-echo Installing or updating host dependencies...
-if exist requirements.txt (
-    %PYTHON% -m pip install -r requirements.txt
-) else if exist host\requirements.txt (
-    %PYTHON% -m pip install -r host\requirements.txt
-) else (
-    echo No requirements file was found.
+if not exist requirements.txt (
+    echo requirements.txt was not found.
+    pause
+    goto menu
 )
+echo Installing or updating host dependencies...
+%PYTHON% -m pip install -r requirements.txt
 pause
 goto menu
 
@@ -91,4 +92,26 @@ goto menu
 
 :open
 start "" "http://127.0.0.1:8765/"
+goto menu
+
+:venv
+cls
+if exist ".venv\Scripts\python.exe" (
+    echo The virtual environment already exists.
+    pause
+    goto menu
+)
+echo Creating ESPLink virtual environment...
+%PYTHON% -m venv .venv
+if errorlevel 1 (
+    echo Failed to create the virtual environment.
+    pause
+    goto menu
+)
+set "PYTHON=.venv\Scripts\python.exe"
+echo Virtual environment created.
+echo Installing host dependencies...
+%PYTHON% -m pip install --upgrade pip
+%PYTHON% -m pip install -r requirements.txt
+pause
 goto menu
