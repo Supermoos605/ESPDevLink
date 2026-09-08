@@ -3,6 +3,7 @@
 Keep user-editable host settings here. Environment variables take precedence,
 so the same host can still be used with the local simulator.
 """
+import json
 import os
 import socket
 
@@ -22,6 +23,30 @@ if not AUTHORIZATION_CODE:
     raise RuntimeError(
         "ESPLINK_AUTH_CODE is not set. Set it to the same value as the ESP32 ACCESS_CODE."
     )
+
+
+def _load_ice_servers() -> list[dict]:
+    """Load optional STUN/TURN servers from ESPLINK_ICE_SERVERS.
+
+    The value is a JSON array, for example:
+    [{"urls": "stun:stun.l.google.com:19302"}]
+    """
+    raw = os.environ.get("ESPLINK_ICE_SERVERS", "").strip()
+    if not raw:
+        return []
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("ESPLINK_ICE_SERVERS must contain valid JSON") from exc
+    if not isinstance(value, list):
+        raise RuntimeError("ESPLINK_ICE_SERVERS must be a JSON array")
+    for server in value:
+        if not isinstance(server, dict) or not server.get("urls"):
+            raise RuntimeError("Each ICE server must be an object containing urls")
+    return value
+
+
+ICE_SERVERS = _load_ice_servers()
 
 # Friendly name -> executable. Add games here as they are supported.
 KNOWN_GAMES = {
