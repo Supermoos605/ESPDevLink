@@ -64,6 +64,18 @@ class HostSignalingTests(unittest.TestCase):
         self.assertEqual(peer.state, "closed")
         self.assertEqual(peer.outbound, [])
 
+    def test_close_session_removes_only_owned_peers(self):
+        signaling = HostSignaling(enable_rtc=False)
+        owned_a = signaling.create_peer("session-a")
+        owned_b = signaling.create_peer("session-a")
+        other = signaling.create_peer("session-b")
+
+        self.assertEqual(signaling.close_session("session-a"), 2)
+        self.assertNotIn(owned_a.peer_id, signaling.peers)
+        self.assertNotIn(owned_b.peer_id, signaling.peers)
+        self.assertIn(other.peer_id, signaling.peers)
+        self.assertEqual(other.state, "waiting")
+
     def test_input_is_disabled_by_default(self):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("ESPLINK_INPUT_ENABLED", None)
