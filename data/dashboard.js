@@ -1,6 +1,7 @@
 (() => {
   const ids = ['dashConnection','dashHost','dashGame','dashLatency','dashVideo','dashAudio','dashReconnects','dashError'];
   const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+  const dot = document.getElementById('stateDot');
   if (!el.dashConnection) return;
   let lastError = 'None';
   const set = (key, value) => { if (el[key]) el[key].textContent = value; };
@@ -15,6 +16,10 @@
     if (rawState === 'ERROR' && attempts > 0 && attempts < maxAttempts) connection = 'RECONNECTING';
     if (rawState === 'ERROR' && attempts >= maxAttempts) connection = 'OFFLINE';
     set('dashConnection', connection);
+    if (dot) {
+      dot.className = 'dot ' + connection.toLowerCase();
+      dot.setAttribute('aria-label', `Connection ${connection.toLowerCase()}`);
+    }
     set('dashHost', window.ESPLinkHostBase?.replace(/^https?:\/\//, '') || 'Not connected');
     set('dashGame', document.getElementById('gameName')?.textContent || selectedGame || 'Desktop');
     set('dashAudio', video?.muted ? 'Muted' : 'Enabled');
