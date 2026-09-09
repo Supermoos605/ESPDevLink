@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ESPDevLink reconnect test</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+    button { margin: .25rem; padding: .5rem .75rem; }
+    pre { background: #f3f4f6; padding: 1rem; white-space: pre-wrap; }
+    .pass { color: #087f23; } .fail { color: #b42318; }
+  </style>
+</head>
+<body>
+  <h1>Reconnect helper test</h1>
+  <p>This harness uses the real <code>webrtc-reconnect.js</code> file and shortens delays so the behavior can be checked without an ESP32.</p>
+  <button id="run">Run tests</button>
+  <button id="cancel">Cancel pending retry</button>
+  <pre id="output">Ready.</pre>
+  <script src="../../data/webrtc-reconnect.js"></script>
+  <script>
+    const output = document.getElementById('output');
+    const log = [];
+    const write = (text, pass) => {
+      log.push((pass ? 'PASS: ' : 'FAIL: ') + text);
+      output.textContent = log.join('\\n');
+    };
+    const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function runTests() {
+      log.length = 0;
+      const helper = window.ESPLinkReconnect;
+      if (!helper) { write('helper is available', false); return; }
+      helper.cancel();
+      helper.reset();
+      write('helper is available', true);
+      write('initial attempts are 0', helper.attempts() === 0);
+
+      let calls = 0;
+      helper.schedule(() => calls++, { baseDelay: 10, maxAttempts: 3 });
+      await wait(25);
+      write('schedule invokes callback', calls === 1);
+      write('attempt count increments', helper.attempts() === 1);
+
+      helper.reset();
+      write('reset clears attempts', helper.attempts() === 0);
+
+      calls = 0;
+      helper.schedule(() => calls++, { baseDelay: 50, maxAttempts: 3 });
+      helper.cancel();
+      await wait(70);
+      write('cancel prevents pending callback', calls === 0);
+      write('cancel clears attempts', helper.attempts() === 0);
+
+      output.textContent += '\\n\\nFinished.';
+    }
+
+    document.getElementById('run').addEventListener('click', runTests);
+    document.getElementById('cancel').addEventListener('click', () => {
+      window.ESPLinkReconnect.cancel();
+      output.textContent += '\\nCancelled pending retry.';
+    });
+  </script>
+</body>
+</html>
