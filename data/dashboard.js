@@ -7,20 +7,22 @@
   const update = async () => {
     const video = document.getElementById('stream');
     const state = document.getElementById('state');
-    const meta = document.getElementById('hostMeta');
+    const selectedGame = localStorage.getItem('espLinkSelectedGame');
     set('dashConnection', state?.textContent || 'READY');
-    set('dashHost', meta?.textContent?.split(' · ')[0] || 'Not connected');
-    set('dashGame', document.getElementById('gameName')?.textContent || 'Desktop');
+    set('dashHost', window.ESPLinkHostBase?.replace(/^https?:\/\//, '') || 'Not connected');
+    set('dashGame', document.getElementById('gameName')?.textContent || selectedGame || 'Desktop');
     set('dashAudio', video?.muted ? 'Muted' : 'Enabled');
     set('dashReconnects', String(typeof window.ESPLinkReconnect?.attempts === 'function' ? window.ESPLinkReconnect.attempts() : 0));
+    set('dashLatency', 'Unavailable');
     if (video?.videoWidth && video?.videoHeight) set('dashVideo', `${video.videoWidth}×${video.videoHeight}`);
     else set('dashVideo', 'Waiting');
-    if (window.peer && typeof window.peer.getStats === 'function') {
+    const peer = window.ESPLinkPeer;
+    if (peer && typeof peer.getStats === 'function') {
       try {
-        const stats = await window.peer.getStats();
+        const stats = await peer.getStats();
         stats.forEach(report => {
           if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime != null) set('dashLatency', `${Math.round(report.currentRoundTripTime * 1000)} ms`);
-          if (report.type === 'inbound-rtp' && report.kind === 'video' && report.framesPerSecond) set('dashVideo', `${report.frameWidth || video.videoWidth}×${report.frameHeight || video.videoHeight} · ${Math.round(report.framesPerSecond)} FPS`);
+          if (report.type === 'inbound-rtp' && (report.kind === 'video' || report.mediaType === 'video') && report.framesPerSecond) set('dashVideo', `${report.frameWidth || video.videoWidth}×${report.frameHeight || video.videoHeight} · ${Math.round(report.framesPerSecond)} FPS`);
         });
       } catch (_) {}
     }
