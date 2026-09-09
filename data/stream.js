@@ -4,6 +4,7 @@ const gameName = document.getElementById('gameName');
 const hint = document.getElementById('gameHint');
 const meta = document.getElementById('hostMeta');
 const state = document.getElementById('state');
+const stage = document.getElementById('stage');
 video.autoplay = true; video.muted = true; video.playsInline = true;
 let hostBase='',hostSession='',peerId=null,peer=null,inputChannel=null,signalTimer=null,stopped=false,inputBound=false,connecting=false,connectionToken=0;
 const pressedKeys=new Set(),pressedButtons=new Set();
@@ -28,4 +29,11 @@ function fail(message){diag('failure',message);stopped=true;connecting=false;rel
 async function receiveSignals(){if(stopped)return;try{const result=await request(hostBase,'/api/webrtc/messages',{headers:{'X-ESPLink-Peer':peerId}});for(const message of result.messages||[]){diag('signal received',message.type);if(message.type==='answer'&&peer&&peer.signalingState!=='stable')await peer.setRemoteDescription({type:'answer',sdp:message.sdp});else if(message.type==='ice-candidate'&&message.candidate)await peer.addIceCandidate(message.candidate);else if(message.type==='error'){fail(message.message||'The host could not create the requested stream.');return;}}}catch(error){if(!stopped){diag('signaling error',error.message);console.warn('Signaling:',error.message);}}}
 async function start(){if(connecting)return;connecting=true;const token=++connectionToken;try{stopped=false;paint({state:'connecting',game:localStorage.getItem('espLinkSelectedGame')||'Test Stream'});await connectHost();if(token!==connectionToken)return;await createPeer(token);}catch(error){if(token===connectionToken)fail(error.message);}finally{if(token===connectionToken)connecting=false;}}
 async function stop(){connectionToken++;stopped=true;if(window.ESPLinkReconnect)window.ESPLinkReconnect.cancel();releaseInput();clearInterval(signalTimer);signalTimer=null;if(peer)peer.close();peer=null;inputChannel=null;peerId=null;if(video.srcObject){video.srcObject.getTracks().forEach(t=>t.stop());video.srcObject=null;}connecting=false;paint({state:'ready',game:''});diag('stopped');}
-document.getElementById('settings').onclick=()=>{location.href='/settings.html'};document.getElementById('disconnect').onclick=stop;start();
+document.getElementById('settings').onclick=()=>{location.href='/settings.html'};
+document.getElementById('games').onclick=async()=>{await stop();location.href='/games.html'};
+document.getElementById('retry').onclick=async()=>{await stop();start();};
+document.getElementById('disconnect').onclick=stop;
+document.getElementById('mute').onclick=()=>{video.muted=!video.muted;document.getElementById('mute').textContent=video.muted?'🔇 Audio':'🔊 Audio';};
+document.getElementById('fullscreen').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen?.();else stage.requestFullscreen?.();};
+document.getElementById('diagnostics').onclick=()=>{diagnosticPanel.style.display=diagnosticPanel.style.display==='none'?'block':'none';};
+start();
