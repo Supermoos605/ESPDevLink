@@ -31,6 +31,8 @@ class HostPeer:
     def receive(self, message: dict) -> None:
         if self.state == "closed":
             raise ValueError("Peer is closed")
+        if not isinstance(message, dict) or not message:
+            raise ValueError("message must be a non-empty object")
         message_type = message.get("type")
         if message_type == "offer":
             self.state = "negotiating"
@@ -60,7 +62,6 @@ class HostSignaling:
                 rtc = WebRTCPeer(video_mode=mode, input_enabled=self.input_enabled)
             except RuntimeError as exc:
                 print(f"[WebRTC] Peer initialization failed: {exc}")
-                rtc = None
         peer = HostPeer(peer_id=peer_id, session_id=session_id.strip(), rtc=rtc)
         self.peers[peer_id] = peer
         return peer
@@ -72,6 +73,12 @@ class HostSignaling:
         if peer.state == "closed":
             raise ValueError("Peer is closed")
         return peer
+
+    def peers_for_session(self, session_id: str) -> list[HostPeer]:
+        """Return active peers owned by a session without exposing other sessions."""
+        if not isinstance(session_id, str) or not session_id.strip():
+            raise ValueError("session_id must be a non-empty string")
+        return [peer for peer in self.peers.values() if peer.session_id == session_id.strip() and peer.state != "closed"]
 
     def signal(self, peer_id: str, session_id: str, message: dict) -> HostPeer:
         peer = self.get_peer(peer_id, session_id)
@@ -86,8 +93,6 @@ class HostSignaling:
             candidate = message.get("candidate")
             if not isinstance(candidate, dict):
                 raise ValueError("ICE candidate must be an object")
-            # Browsers send an empty candidate object to mark the end of
-            # trickle ICE. The peer layer treats it as a no-op.
         peer.receive(message)
 
         if message_type == "offer" and peer.rtc is not None:
@@ -131,9 +136,11 @@ class HostSignaling:
 
     def close_session(self, session_id: str) -> int:
         """Close and remove every WebRTC peer owned by a client session."""
+        if not isinstance(session_id, str) or not session_id.strip():
+            raise ValueError("session_id must be a non-empty string")
         closed = 0
         for peer_id, peer in list(self.peers.items()):
-            if peer.session_id != session_id:
+            if peer.session_id != session_id.strip():
                 continue
             self._close_peer(peer)
             self.peers.pop(peer_id, None)
