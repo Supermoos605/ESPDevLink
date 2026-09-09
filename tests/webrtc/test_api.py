@@ -19,7 +19,6 @@ class HostAPITests(unittest.TestCase):
 
     def test_authorize_returns_new_session_details(self):
         host = Mock()
-        session = Mock(session_id="session-123", state="connected")
         host.authorize.return_value = {"authorized": True, "session_id": "session-123", "state": "connected"}
         api = HostAPI(host=host, signaling=Mock())
 
