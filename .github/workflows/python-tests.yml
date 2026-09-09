@@ -17,5 +17,5 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run WebRTC signaling tests
-        run: python -m unittest tests/webrtc/test_signaling.py
+      - name: Run WebRTC regression tests
+        run: python -m unittest tests/webrtc/test_signaling.py tests/webrtc/test_api.py
