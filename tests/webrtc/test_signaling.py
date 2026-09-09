@@ -15,10 +15,35 @@ class HostSignalingTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             signaling.get_peer(peer.peer_id, "session-b")
 
+    def test_peers_for_session_returns_only_owned_peers(self):
+        signaling = HostSignaling(enable_rtc=False)
+        first = signaling.create_peer("session-a")
+        second = signaling.create_peer("session-a")
+        other = signaling.create_peer("session-b")
+
+        self.assertEqual(
+            {peer.peer_id for peer in signaling.peers_for_session("session-a")},
+            {first.peer_id, second.peer_id},
+        )
+        self.assertEqual(signaling.peers_for_session("missing"), [])
+
     def test_empty_session_is_rejected(self):
         signaling = HostSignaling(enable_rtc=False)
         with self.assertRaises(ValueError):
             signaling.create_peer("   ")
+
+    def test_invalid_session_is_rejected_by_close_session(self):
+        signaling = HostSignaling(enable_rtc=False)
+        with self.assertRaises(ValueError):
+            signaling.close_session("   ")
+
+    def test_empty_signaling_message_is_rejected(self):
+        signaling = HostSignaling(enable_rtc=False)
+        peer = signaling.create_peer("session-a")
+        with self.assertRaises(ValueError):
+            peer.receive({})
+        with self.assertRaises(ValueError):
+            peer.receive(None)
 
     def test_offer_without_media_reports_unavailable(self):
         signaling = HostSignaling(enable_rtc=False)
