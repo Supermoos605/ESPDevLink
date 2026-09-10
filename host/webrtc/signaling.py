@@ -172,6 +172,8 @@ class HostSignaling:
             return peer
 
     def signal_result(self, peer_id: str, session_id: str, message: dict) -> dict:
+        if not self.is_current(peer_id, session_id):
+            raise KeyError("WebRTC peer is stale; create a new session for retry")
         """Signal a peer and snapshot its outbound queue under one lock."""
         with self._lock:
             peer = self.signal(peer_id, session_id, message)
