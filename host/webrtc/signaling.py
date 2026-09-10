@@ -27,8 +27,10 @@ class HostPeer:
     rtc: WebRTCPeer | None = field(default=None, repr=False)
 
     def send(self, message: dict) -> None:
-        if self.state == "closed":
-            raise ValueError("Peer is closed")
+        if self.state in {"closed", "error"}:
+            raise ValueError("Peer is no longer active")
+        if not isinstance(message, dict) or not message:
+            raise ValueError("message must be a non-empty object")
         self.outbound.append(message)
 
     def receive(self, message: dict) -> None:
