@@ -121,8 +121,13 @@ class HostSignaling:
                     answer = peer.rtc.accept_offer(message["sdp"])
                     peer.remote_description_set = True
                 except Exception as exc:
-                    peer.state = "error"
+                    # A failed offer must not leave the capture/RTC peer alive.
+                    # Safari can immediately retry the session; keeping the failed
+                    # peer around leaves DXGI capture running and causes the next
+                    # attempt to hit "Capture is already running".
                     print(f"[WebRTC] Offer negotiation failed: {exc!r}")
+                    self._close_peer(peer)
+                    peer.state = "error"
                     peer.send({"type": "error", "code": "webrtc_negotiation_failed", "message": "WebRTC negotiation failed. Check the host terminal for details."})
                 else:
                     peer.send(answer)
