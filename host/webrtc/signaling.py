@@ -239,6 +239,12 @@ class HostSignaling:
                 removed += 1
         return removed
 
+    def is_current(self, peer_id: str, session_id: str) -> bool:
+        """Return whether a peer/session pair is still the active mapping."""
+        with self._lock:
+            peer = self.peers.get(peer_id)
+            return peer is not None and peer.session_id == session_id and peer.state not in {"closed", "error"}
+
     def close_all(self) -> None:
         with self._lock:
             for peer in list(self.peers.values()):
