@@ -68,6 +68,8 @@ class HostSignaling:
             raise ValueError("video_mode must be desktop, test, or none")
         with self._lock:
             self.close_session(session_id)
+            # Never reuse a peer identifier, even after an old peer is removed.
+            # Browsers can retain queued fetches from an earlier attempt.
             peer_id = token_urlsafe(18)
             while peer_id in self.peers:
                 peer_id = token_urlsafe(18)
@@ -83,6 +85,10 @@ class HostSignaling:
             return peer
 
     def get_peer(self, peer_id: str, session_id: str) -> HostPeer:
+        if not isinstance(peer_id, str) or not peer_id.strip():
+            raise KeyError("Unknown WebRTC peer")
+        if not isinstance(session_id, str) or not session_id.strip():
+            raise KeyError("Unknown WebRTC session")
         with self._lock:
             self.cleanup_expired()
             peer = self.peers.get(peer_id)
