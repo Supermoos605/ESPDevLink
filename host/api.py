@@ -120,8 +120,7 @@ class HostAPI:
         return result
 
     def signal_peer(self, peer_id: str, session_id: str, message: dict) -> dict:
-        peer = self.signaling.signal(peer_id, session_id, message)
-        return {"peer_id": peer.peer_id, "state": peer.state, "outbound": list(peer.outbound)}
+        return self.signaling.signal_result(peer_id, session_id, message)
 
     def close_peer(self, peer_id: str, session_id: str) -> dict:
         self.signaling.close(peer_id, session_id)
