@@ -200,10 +200,8 @@ class HostHandler(BaseHTTPRequestHandler):
                 session_id = self.require_session()
                 if session_id is not None:
                     peer_id = self.headers.get("X-ESPLink-Peer", "")
-                    peer = api.signaling.get_peer(peer_id, session_id)
-                    messages = list(peer.outbound)
-                    peer.outbound.clear()
-                    self.send_json({"ok": True, "peer_id": peer.peer_id, "messages": messages})
+                    messages = api.signaling.drain_outbound(peer_id, session_id)
+                    self.send_json({"ok": True, "peer_id": peer_id, "messages": messages})
             elif not self.serve_static():
                 self.send_json({"ok": False, "error": "Not found"}, 404)
         except KeyError as exc:
