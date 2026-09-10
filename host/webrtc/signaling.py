@@ -88,8 +88,8 @@ class HostSignaling:
             peer = self.peers.get(peer_id)
             if peer is None or peer.session_id != session_id:
                 raise KeyError("Unknown WebRTC peer")
-            if peer.state == "closed":
-                raise ValueError("Peer is closed")
+            if peer.state in {"closed", "error"}:
+                raise ValueError("WebRTC peer is no longer active; create a new session for retry")
             return peer
 
     def peers_for_session(self, session_id: str) -> list[HostPeer]:
