@@ -249,7 +249,6 @@ void setup() {
     });
 
     server.on("/api/pc", HTTP_GET, [](AsyncWebServerRequest* request) {
-        if (!authorized(request)) { sendError(request, 401, "Unauthorized"); return; }
         JsonDocument doc;
         doc["name"] = pcName;
         doc["ip"] = pcIP;
