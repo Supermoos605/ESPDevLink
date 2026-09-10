@@ -148,11 +148,44 @@ class WebRTCPeer:
         return asyncio.run_coroutine_threadsafe(coroutine, self._loop)
 
     async def _accept_offer(self, sdp: str) -> dict:
+        if not isinstance(sdp, str) or not sdp.strip():
+            raise ValueError("WebRTC offer SDP must be a non-empty string")
+
         offer = RTCSessionDescription(sdp=sdp, type="offer")
         await self.connection.setRemoteDescription(offer)
-        answer = await self.connection.createAnswer()
-        await self.connection.setLocalDescription(answer)
+
+        # Safari/iPadOS is particularly sensitive to media-section direction.
+        # Validate the negotiated directions before asking aiortc to generate
+        # the answer. A missing direction is what ultimately becomes the
+        # cryptic "None is not in list" ValueError in aiortc's SDP code.
+        for transceiver in self.connection.getTransceivers():
+            remote = getattr(transceiver, "remoteDirection", None)
+            local = getattr(transceiver, "direction", None)
+            if remote is None:
+                raise ValueError(
+                    f"WebRTC offer has no media direction for {transceiver.kind} "
+                    f"(local direction={local!r})"
+                )
+
+        try:
+            answer = await self.connection.createAnswer()
+            await self.connection.setLocalDescription(answer)
+        except ValueError as exc:
+            if "None is not in list" in str(exc):
+                directions = [
+                    f"{t.kind}: local={getattr(t, 'direction', None)!r}, "
+                    f"remote={getattr(t, 'remoteDirection', None)!r}"
+                    for t in self.connection.getTransceivers()
+                ]
+                raise ValueError(
+                    "aiortc could not negotiate Safari media directions; "
+                    + "; ".join(directions)
+                ) from exc
+            raise
+
         description = self.connection.localDescription
+        if description is None:
+            raise RuntimeError("WebRTC answer was not created")
         return {"type": description.type, "sdp": description.sdp}
 
     def accept_offer(self, sdp: str) -> dict:
