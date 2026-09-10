@@ -29,6 +29,22 @@ class HostAPITests(unittest.TestCase):
         self.assertEqual(result["session_id"], "session-123")
         self.assertEqual(result["state"], "connected")
 
+    def test_signal_peer_uses_atomic_signaling_result(self):
+        signaling = Mock()
+        signaling.signal_result.return_value = {
+            "peer_id": "peer-123",
+            "state": "connected",
+            "outbound": [{"type": "answer", "sdp": "answer"}],
+        }
+        api = HostAPI(host=Mock(), signaling=signaling)
+        message = {"type": "offer", "sdp": "offer"}
+
+        result = api.signal_peer("peer-123", "session-a", message)
+
+        signaling.signal_result.assert_called_once_with("peer-123", "session-a", message)
+        signaling.signal.assert_not_called()
+        self.assertEqual(result, signaling.signal_result.return_value)
+
 
 if __name__ == "__main__":
     unittest.main()
