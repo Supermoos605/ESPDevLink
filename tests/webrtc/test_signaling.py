@@ -129,6 +129,18 @@ class HostSignalingTests(unittest.TestCase):
         self.assertTrue(peer.remote_description_set)
         self.assertEqual(peer.state, "connected")
 
+    def test_drain_outbound_is_atomic(self):
+        signaling = HostSignaling(enable_rtc=False)
+        peer = signaling.create_peer("session-a")
+        peer.send({"type": "answer"})
+        peer.send({"type": "candidate"})
+
+        messages = signaling.drain_outbound(peer.peer_id, "session-a")
+
+        self.assertEqual(messages, [{"type": "answer"}, {"type": "candidate"}])
+        self.assertEqual(peer.outbound, [])
+        self.assertEqual(signaling.drain_outbound(peer.peer_id, "session-a"), [])
+
     def test_close_clears_outbound_messages(self):
         signaling = HostSignaling(enable_rtc=False)
         peer = signaling.create_peer("session-a")
