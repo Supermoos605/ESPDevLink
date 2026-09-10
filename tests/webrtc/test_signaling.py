@@ -200,6 +200,42 @@ class HostSignalingTests(unittest.TestCase):
         self.assertEqual(peer.state, "closed")
         self.assertEqual(peer.outbound, [])
 
+    def test_close_cleans_up_even_when_rtc_close_fails(self):
+        class FailingRTC:
+            def close(self):
+                raise RuntimeError("already closed")
+
+        signaling = HostSignaling(enable_rtc=False)
+        peer = signaling.create_peer("session-a")
+        peer.rtc = FailingRTC()
+        peer.pending_ice.append({"candidate": "stale"})
+        peer.remote_description_set = True
+        peer.outbound.append({"type": "stale"})
+
+        signaling.close(peer.peer_id, "session-a")
+
+        self.assertNotIn(peer.peer_id, signaling.peers)
+        self.assertIsNone(peer.rtc)
+        self.assertEqual(peer.state, "closed")
+        self.assertEqual(peer.pending_ice, [])
+        self.assertFalse(peer.remote_description_set)
+        self.assertEqual(peer.outbound, [])
+
+    def test_reconnect_replaces_old_peer_with_fresh_state(self):
+        signaling = HostSignaling(enable_rtc=False)
+        old_peer = signaling.create_peer("session-a")
+        old_peer.pending_ice.append({"candidate": "old"})
+        old_peer.outbound.append({"type": "old"})
+
+        new_peer = signaling.create_peer("session-a")
+
+        self.assertNotEqual(new_peer.peer_id, old_peer.peer_id)
+        self.assertNotIn(old_peer.peer_id, signaling.peers)
+        self.assertEqual(new_peer.state, "waiting")
+        self.assertEqual(new_peer.pending_ice, [])
+        self.assertEqual(new_peer.outbound, [])
+        self.assertFalse(new_peer.remote_description_set)
+
     def test_close_session_removes_only_owned_peers(self):
         signaling = HostSignaling(enable_rtc=False)
         owned = signaling.create_peer("session-a")
