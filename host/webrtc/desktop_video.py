@@ -19,7 +19,14 @@ class DesktopVideoTrack(VideoStreamTrack if VideoStreamTrack is not None else ob
             raise RuntimeError("aiortc and PyAV are required for desktop WebRTC video")
         super().__init__()
         self.capture = WindowsCaptureSource(display_index=display_index, target_fps=target_fps)
-        self.capture.start()
+        try:
+            self.capture.start()
+        except Exception:
+            # DXcam may return an existing capture object before reporting that
+            # it is already running. Always release that object on failure so a
+            # browser reconnect cannot inherit a stuck capture session.
+            self.capture.stop()
+            raise
 
     async def recv(self):
         pts, time_base = await self.next_timestamp()
