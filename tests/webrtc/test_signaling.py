@@ -81,6 +81,54 @@ class HostSignalingTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 signaling.signal(peer.peer_id, "session-a", {"type": "ice-candidate", "candidate": "bad"})
 
+    def test_ice_candidate_is_queued_until_offer_is_applied(self):
+        rtc = type("FakeRTC", (), {
+            "accept_offer": lambda self, sdp: {"type": "answer", "sdp": "answer"},
+            "add_ice_candidate": lambda self, candidate: None,
+        })()
+        signaling = HostSignaling(enable_rtc=False)
+        peer = signaling.create_peer("session-a")
+        peer.rtc = rtc
+
+        candidate = {"candidate": "candidate:ipad", "sdpMid": "0", "sdpMLineIndex": 0}
+        result = signaling.signal(peer.peer_id, "session-a", {"type": "ice-candidate", "candidate": candidate})
+
+        self.assertIs(result, peer)
+        self.assertEqual(peer.pending_ice, [candidate])
+        self.assertFalse(peer.remote_description_set)
+        self.assertEqual(peer.outbound, [])
+
+        signaling.signal(peer.peer_id, "session-a", {"type": "offer", "sdp": "ipad-offer"})
+
+        self.assertTrue(peer.remote_description_set)
+        self.assertEqual(peer.pending_ice, [])
+        self.assertEqual(peer.outbound, [{"type": "answer", "sdp": "answer"}])
+
+    def test_queued_ice_is_flushed_after_offer_before_later_ice(self):
+        added = []
+
+        class FakeRTC:
+            def accept_offer(self, sdp):
+                return {"type": "answer", "sdp": "answer"}
+
+            def add_ice_candidate(self, candidate):
+                added.append(candidate)
+
+        signaling = HostSignaling(enable_rtc=False)
+        peer = signaling.create_peer("session-a")
+        peer.rtc = FakeRTC()
+        early = {"candidate": "candidate:early"}
+        late = {"candidate": "candidate:late"}
+
+        signaling.signal(peer.peer_id, "session-a", {"type": "ice-candidate", "candidate": early})
+        signaling.signal(peer.peer_id, "session-a", {"type": "offer", "sdp": "ipad-offer"})
+        signaling.signal(peer.peer_id, "session-a", {"type": "ice-candidate", "candidate": late})
+
+        self.assertEqual(added, [early, late])
+        self.assertEqual(peer.pending_ice, [])
+        self.assertTrue(peer.remote_description_set)
+        self.assertEqual(peer.state, "connected")
+
     def test_close_clears_outbound_messages(self):
         signaling = HostSignaling(enable_rtc=False)
         peer = signaling.create_peer("session-a")
