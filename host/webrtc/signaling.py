@@ -84,6 +84,7 @@ class HostSignaling:
 
     def get_peer(self, peer_id: str, session_id: str) -> HostPeer:
         with self._lock:
+            self.cleanup_expired()
             peer = self.peers.get(peer_id)
             if peer is None or peer.session_id != session_id:
                 raise KeyError("Unknown WebRTC peer")
@@ -211,6 +212,19 @@ class HostSignaling:
                 self.peers.pop(peer_id, None)
                 closed += 1
             return closed
+
+    def cleanup_expired(self, max_age: float = 120.0) -> int:
+        """Remove abandoned peers so stale browser attempts cannot linger."""
+        now = time()
+        removed = 0
+        with self._lock:
+            for peer_id, peer in list(self.peers.items()):
+                if now - peer.created_at <= max_age:
+                    continue
+                self._close_peer(peer)
+                self.peers.pop(peer_id, None)
+                removed += 1
+        return removed
 
     def close_all(self) -> None:
         with self._lock:
