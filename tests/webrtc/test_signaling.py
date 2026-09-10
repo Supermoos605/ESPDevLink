@@ -1,5 +1,6 @@
 """Regression tests for host-side WebRTC signaling."""
 import os
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -128,6 +129,56 @@ class HostSignalingTests(unittest.TestCase):
         self.assertEqual(peer.pending_ice, [])
         self.assertTrue(peer.remote_description_set)
         self.assertEqual(peer.state, "connected")
+
+    def test_concurrent_offer_and_ice_are_race_safe(self):
+        """Simulate Safari sending an ICE candidate while the offer is in flight."""
+        class FakeRTC:
+            def __init__(self):
+                self.added = []
+
+            def accept_offer(self, sdp):
+                return {"type": "answer", "sdp": "answer"}
+
+            def add_ice_candidate(self, candidate):
+                self.added.append(candidate)
+
+        for _ in range(20):
+            signaling = HostSignaling(enable_rtc=False)
+            peer = signaling.create_peer("session-a")
+            rtc = FakeRTC()
+            peer.rtc = rtc
+            candidate = {"candidate": "candidate:ipad-race"}
+            start = threading.Barrier(3)
+            errors = []
+
+            def send_offer():
+                try:
+                    start.wait()
+                    signaling.signal(peer.peer_id, "session-a", {"type": "offer", "sdp": "ipad-offer"})
+                except Exception as exc:
+                    errors.append(exc)
+
+            def send_ice():
+                try:
+                    start.wait()
+                    signaling.signal(peer.peer_id, "session-a", {"type": "ice-candidate", "candidate": candidate})
+                except Exception as exc:
+                    errors.append(exc)
+
+            offer_thread = threading.Thread(target=send_offer)
+            ice_thread = threading.Thread(target=send_ice)
+            offer_thread.start()
+            ice_thread.start()
+            start.wait()
+            offer_thread.join()
+            ice_thread.join()
+
+            self.assertEqual(errors, [])
+            self.assertEqual(rtc.added, [candidate])
+            self.assertEqual(peer.pending_ice, [])
+            self.assertTrue(peer.remote_description_set)
+            self.assertEqual(peer.state, "connected")
+            self.assertEqual(peer.outbound, [{"type": "answer", "sdp": "answer"}])
 
     def test_drain_outbound_is_atomic(self):
         signaling = HostSignaling(enable_rtc=False)
