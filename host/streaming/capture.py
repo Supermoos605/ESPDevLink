@@ -61,9 +61,26 @@ class WindowsCaptureSource:
             raise RuntimeError("DXcam is not installed")
         if self.running:
             return
-        self._camera = dxcam.create(output_idx=self.display_index, output_color="RGB")
-        self._camera.start(target_fps=self.target_fps, video_mode=True)
-        self.running = True
+
+        camera = dxcam.create(output_idx=self.display_index, output_color="RGB")
+        # DXcam can return an existing camera object. If a previous failed
+        # WebRTC peer left it running, stop it before starting a new capture.
+        try:
+            camera.stop()
+        except Exception:
+            pass
+        self._camera = camera
+        try:
+            self._camera.start(target_fps=self.target_fps, video_mode=True)
+            self.running = True
+        except Exception:
+            try:
+                self._camera.stop()
+            except Exception:
+                pass
+            self._camera = None
+            self.running = False
+            raise
 
     def read(self):
         """Return the newest RGB frame as a NumPy array, or None when unavailable."""
@@ -73,7 +90,10 @@ class WindowsCaptureSource:
 
     def stop(self) -> None:
         if self._camera is not None:
-            self._camera.stop()
+            try:
+                self._camera.stop()
+            except Exception:
+                pass
         self._camera = None
         self.running = False
 
