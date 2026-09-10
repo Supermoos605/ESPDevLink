@@ -127,7 +127,7 @@ class HostSignaling:
                     # attempt to hit "Capture is already running".
                     print(f"[WebRTC] Offer negotiation failed: {exc!r}")
                     peer.send({"type": "error", "code": "webrtc_negotiation_failed", "message": "WebRTC negotiation failed. Check the host terminal for details."})
-                    self._close_peer(peer)
+                    self._close_peer(peer, preserve_outbound=True)
                     peer.state = "error"
                 else:
                     peer.send(answer)
@@ -179,7 +179,7 @@ class HostSignaling:
             self._close_peer(peer)
             self.peers.pop(peer_id, None)
 
-    def _close_peer(self, peer: HostPeer) -> None:
+    def _close_peer(self, peer: HostPeer, preserve_outbound: bool = False) -> None:
         try:
             if peer.rtc is not None:
                 peer.rtc.close()
@@ -190,7 +190,8 @@ class HostSignaling:
             peer.state = "closed"
             peer.pending_ice.clear()
             peer.remote_description_set = False
-            peer.outbound.clear()
+            if not preserve_outbound:
+                peer.outbound.clear()
 
     def close_session(self, session_id: str) -> int:
         """Close and remove every WebRTC peer owned by a client session."""
