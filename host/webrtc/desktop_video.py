@@ -19,6 +19,7 @@ class DesktopVideoTrack(VideoStreamTrack if VideoStreamTrack is not None else ob
             raise RuntimeError("aiortc and PyAV are required for desktop WebRTC video")
         super().__init__()
         self.capture = WindowsCaptureSource(display_index=display_index, target_fps=target_fps)
+        self._stopped = False
         try:
             self.capture.start()
         except Exception:
@@ -40,5 +41,8 @@ class DesktopVideoTrack(VideoStreamTrack if VideoStreamTrack is not None else ob
         return frame
 
     def stop(self) -> None:
+        if self._stopped:
+            return
+        self._stopped = True
         self.capture.stop()
         super().stop()
