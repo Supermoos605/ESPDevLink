@@ -215,6 +215,24 @@ class HostSignalingTests(unittest.TestCase):
         peer.send({"type": "test"}); signaling.close(peer.peer_id, "session-a")
         self.assertEqual(peer.state, "closed"); self.assertEqual(peer.outbound, [])
 
+    def test_failed_offer_preserves_error_for_browser_after_cleanup(self):
+        class FailingRTC:
+            def __init__(self): self.closed = False
+            def accept_offer(self, sdp): raise ValueError("None is not in list")
+            def close(self): self.closed = True
+        signaling = HostSignaling(enable_rtc=False)
+        peer = signaling.create_peer("session-a")
+        rtc = FailingRTC()
+        peer.rtc = rtc
+        result = signaling.signal_result(peer.peer_id, "session-a", {"type": "offer", "sdp": "safari-offer"})
+        self.assertEqual(result["state"], "error")
+        self.assertEqual(result["peer_id"], peer.peer_id)
+        self.assertEqual(result["outbound"][0]["code"], "webrtc_negotiation_failed")
+        self.assertTrue(rtc.closed)
+        self.assertIsNone(peer.rtc)
+        self.assertEqual(peer.pending_ice, [])
+        self.assertFalse(peer.remote_description_set)
+
     def test_close_cleans_up_even_when_rtc_close_fails(self):
         class FailingRTC:
             def close(self): raise RuntimeError("already closed")
