@@ -180,11 +180,24 @@ class HostSignaling:
             return {"peer_id": peer.peer_id, "state": peer.state, "outbound": list(peer.outbound)}
 
     def drain_outbound(self, peer_id: str, session_id: str) -> list[dict]:
-        """Atomically return and clear queued messages for a peer."""
+        """Atomically return and clear queued messages for a peer.
+        
+        Terminal peers may still have one final error message queued. Allow
+        that message to be drained, but never allow terminal peers back into
+        normal signaling operations.
+        """
         with self._lock:
-            peer = self.get_peer(peer_id, session_id)
+            if not isinstance(peer_id, str) or not peer_id.strip():
+                raise KeyError("Unknown WebRTC peer")
+            if not isinstance(session_id, str) or not session_id.strip():
+                raise KeyError("Unknown WebRTC session")
+            peer = self.peers.get(peer_id)
+            if peer is None or peer.session_id != session_id.strip():
+                raise KeyError("Unknown WebRTC peer")
             messages = list(peer.outbound)
             peer.outbound.clear()
+            if peer.state in {"closed", "error"} and not messages:
+                self.peers.pop(peer_id, None)
             return messages
 
     def stats(self, peer_id: str, session_id: str) -> dict:
