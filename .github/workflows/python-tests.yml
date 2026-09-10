@@ -21,3 +21,11 @@ jobs:
 
       - name: Run WebRTC regression tests
         run: python -m unittest tests/webrtc/test_signaling.py tests/webrtc/test_api.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run reconnect helper test
+        run: node tests/webrtc/reconnect-node-test.js
