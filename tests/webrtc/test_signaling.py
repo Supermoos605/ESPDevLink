@@ -56,6 +56,20 @@ class HostSignalingTests(unittest.TestCase):
                 signaling.create_peer("session-a")
         self.assertEqual(signaling.peers_for_session("session-a"), [])
 
+    def test_safari_negotiation_error_is_preserved_and_peer_is_cleaned(self):
+        class FailingRTC:
+            def __init__(self): self.closed = False
+            def accept_offer(self, sdp): raise ValueError("aiortc could not negotiate Safari media directions")
+            def close(self): self.closed = True
+        signaling = HostSignaling(enable_rtc=False)
+        peer = signaling.create_peer("session-safari")
+        rtc = FailingRTC(); peer.rtc = rtc
+        result = signaling.signal_result(peer.peer_id, "session-safari", {"type": "offer", "sdp": "v=0\\r\\n"})
+        self.assertEqual(result["state"], "error")
+        self.assertEqual(result["outbound"][0]["code"], "webrtc_negotiation_failed")
+        self.assertTrue(rtc.closed)
+        self.assertIsNone(peer.rtc)
+
     def test_empty_offer_sdp_is_rejected_by_rtc_peer(self):
         signaling = HostSignaling(enable_rtc=False)
         peer = signaling.create_peer("session-a")
