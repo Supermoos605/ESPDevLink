@@ -18,12 +18,15 @@ class HostSignalingTests(unittest.TestCase):
     def test_peers_for_session_returns_only_owned_peers(self):
         signaling = HostSignaling(enable_rtc=False)
         first = signaling.create_peer("session-a")
-        second = signaling.create_peer("session-a")
-        other = signaling.create_peer("session-b")
+        second = signaling.create_peer("session-b")
 
         self.assertEqual(
             {peer.peer_id for peer in signaling.peers_for_session("session-a")},
-            {first.peer_id, second.peer_id},
+            {first.peer_id},
+        )
+        self.assertEqual(
+            {peer.peer_id for peer in signaling.peers_for_session("session-b")},
+            {second.peer_id},
         )
         self.assertEqual(signaling.peers_for_session("missing"), [])
 
@@ -59,13 +62,10 @@ class HostSignalingTests(unittest.TestCase):
     def test_peer_initialization_failure_is_reported(self):
         with patch("host.webrtc.signaling.WebRTCPeer", side_effect=RuntimeError("Capture is already running")):
             signaling = HostSignaling(enable_rtc=True)
-            peer = signaling.create_peer("session-a")
+            with self.assertRaisesRegex(RuntimeError, "WebRTC peer initialization failed: Capture is already running"):
+                signaling.create_peer("session-a")
 
-        self.assertIsNone(peer.rtc)
-        result = signaling.signal(peer.peer_id, "session-a", {"type": "offer", "sdp": "test"})
-        self.assertEqual(result.state, "error")
-        self.assertEqual(result.outbound[-1]["code"], "webrtc_unavailable")
-        self.assertNotIn("aiortc", result.outbound[-1]["message"])
+        self.assertEqual(signaling.peers_for_session("session-a"), [])
 
     def test_empty_offer_sdp_is_rejected_by_rtc_peer(self):
         signaling = HostSignaling(enable_rtc=False)
@@ -139,13 +139,11 @@ class HostSignalingTests(unittest.TestCase):
 
     def test_close_session_removes_only_owned_peers(self):
         signaling = HostSignaling(enable_rtc=False)
-        owned_a = signaling.create_peer("session-a")
-        owned_b = signaling.create_peer("session-a")
+        owned = signaling.create_peer("session-a")
         other = signaling.create_peer("session-b")
 
-        self.assertEqual(signaling.close_session("session-a"), 2)
-        self.assertNotIn(owned_a.peer_id, signaling.peers)
-        self.assertNotIn(owned_b.peer_id, signaling.peers)
+        self.assertEqual(signaling.close_session("session-a"), 1)
+        self.assertNotIn(owned.peer_id, signaling.peers)
         self.assertIn(other.peer_id, signaling.peers)
         self.assertEqual(other.state, "waiting")
 
