@@ -111,10 +111,16 @@ class WebRTCPeer:
                     display_index=self.display_index,
                     target_fps=CAPTURE_FPS,
                 )
-                connection.addTrack(self.video_track)
+                # Explicitly create a sendonly transceiver instead of relying on
+                # addTrack() to infer the initial direction. Safari/iPadOS can
+                # otherwise expose an offer direction which aiortc cannot
+                # intersect with the sender transceiver.
+                video_transceiver = connection.addTransceiver("video", direction="sendonly")
+                video_transceiver.sender.replaceTrack(self.video_track)
             elif self.video_mode == "test":
                 self.video_track = TestVideoTrack()
-                connection.addTrack(self.video_track)
+                video_transceiver = connection.addTransceiver("video", direction="sendonly")
+                video_transceiver.sender.replaceTrack(self.video_track)
 
             if self.audio_enabled:
                 try:
@@ -122,7 +128,8 @@ class WebRTCPeer:
                 except RuntimeError as exc:
                     self.audio_error = str(exc)
                 else:
-                    connection.addTrack(self.audio_track)
+                    audio_transceiver = connection.addTransceiver("audio", direction="sendonly")
+                    audio_transceiver.sender.replaceTrack(self.audio_track)
             return connection
         except Exception:
             if self.video_track is not None:
