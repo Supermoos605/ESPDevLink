@@ -250,16 +250,23 @@ class WebRTCPeer:
     async def _close(self) -> None:
         if self.video_track is not None:
             self.video_track.stop()
+            self.video_track = None
         if self.audio_track is not None:
             self.audio_track.stop()
+            self.audio_track = None
         await self.connection.close()
 
     def close(self) -> None:
         if self.closed:
             return
+        self.closed = True
         try:
-            self._submit(self._close()).result(timeout=5)
+            future = asyncio.run_coroutine_threadsafe(self._close(), self._loop)
+            future.result(timeout=5)
+        except Exception as exc:
+            # Cleanup must not strand the event-loop thread if RTC shutdown
+            # itself fails. The signaling layer can still discard this peer.
+            print(f"[WebRTC] Peer shutdown failed: {exc!r}")
         finally:
-            self.closed = True
             self._loop.call_soon_threadsafe(self._loop.stop)
             self._thread.join(timeout=2)
