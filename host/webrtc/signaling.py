@@ -140,7 +140,10 @@ class HostSignaling:
                     # peer around leaves DXGI capture running and causes the next
                     # attempt to hit "Capture is already running".
                     print(f"[WebRTC] Offer negotiation failed: {exc!r}")
-                    peer.send({"type": "error", "code": "webrtc_negotiation_failed", "message": "WebRTC negotiation failed. Check the host terminal for details."})
+                    # Error notifications must survive terminal-state cleanup.
+                    # Do not route this through send(), which intentionally
+                    # rejects normal messages once a peer is failed.
+                    peer.outbound.append({"type": "error", "code": "webrtc_negotiation_failed", "message": "WebRTC negotiation failed. Check the host terminal for details."})
                     self._close_peer(peer, preserve_outbound=True)
                     peer.state = "error"
                 else:
