@@ -13,6 +13,7 @@
 
   let attempts = 0;
   let timer = null;
+  let generation = 0;
 
   function delayForAttempt(attempt) {
     return Math.min(MAX_DELAY_MS, BASE_DELAY_MS * (2 ** Math.max(0, attempt - 1)));
@@ -27,6 +28,7 @@
 
   function resetReconnectAttempts() {
     attempts = 0;
+    generation += 1;
     clearReconnectTimer();
   }
 
@@ -36,6 +38,7 @@
 
     attempts += 1;
     const delay = delayForAttempt(attempts);
+    const scheduledGeneration = generation;
 
     if (typeof statusCallback === 'function') {
       statusCallback({
@@ -48,6 +51,7 @@
 
     timer = window.setTimeout(() => {
       timer = null;
+      if (scheduledGeneration !== generation) return;
       callback();
     }, delay);
 
@@ -57,7 +61,10 @@
   window.ESPLinkReconnect = {
     schedule: scheduleReconnect,
     reset: resetReconnectAttempts,
-    cancel: clearReconnectTimer,
+    cancel: () => {
+      generation += 1;
+      clearReconnectTimer();
+    },
     get attempts() {
       return attempts;
     },
