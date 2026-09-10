@@ -50,19 +50,22 @@ class HostSignaling:
     def create_peer(self, session_id: str, video_mode: str | None = None) -> HostPeer:
         if not isinstance(session_id, str) or not session_id.strip():
             raise ValueError("session_id must be a non-empty string")
-        peer_id = token_urlsafe(18)
-        while peer_id in self.peers:
-            peer_id = token_urlsafe(18)
+        session_id = session_id.strip()
         mode = video_mode or self.video_mode
         if mode not in {"desktop", "test", "none"}:
             raise ValueError("video_mode must be desktop, test, or none")
+        self.close_session(session_id)
+        peer_id = token_urlsafe(18)
+        while peer_id in self.peers:
+            peer_id = token_urlsafe(18)
         rtc = None
         if self.enable_rtc:
             try:
                 rtc = WebRTCPeer(video_mode=mode, input_enabled=self.input_enabled)
             except RuntimeError as exc:
                 print(f"[WebRTC] Peer initialization failed: {exc}")
-        peer = HostPeer(peer_id=peer_id, session_id=session_id.strip(), rtc=rtc)
+                raise RuntimeError(f"WebRTC peer initialization failed: {exc}") from exc
+        peer = HostPeer(peer_id=peer_id, session_id=session_id, rtc=rtc)
         self.peers[peer_id] = peer
         return peer
 
@@ -94,7 +97,6 @@ class HostSignaling:
             if not isinstance(candidate, dict):
                 raise ValueError("ICE candidate must be an object")
         peer.receive(message)
-
         if message_type == "offer" and peer.rtc is not None:
             try:
                 answer = peer.rtc.accept_offer(message["sdp"])
@@ -128,11 +130,13 @@ class HostSignaling:
         self.peers.pop(peer_id, None)
 
     def _close_peer(self, peer: HostPeer) -> None:
-        if peer.rtc is not None:
-            peer.rtc.close()
+        try:
+            if peer.rtc is not None:
+                peer.rtc.close()
+        finally:
             peer.rtc = None
-        peer.state = "closed"
-        peer.outbound.clear()
+            peer.state = "closed"
+            peer.outbound.clear()
 
     def close_session(self, session_id: str) -> int:
         """Close and remove every WebRTC peer owned by a client session."""
