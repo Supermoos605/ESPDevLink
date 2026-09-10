@@ -4,16 +4,21 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync('data/webrtc-reconnect.js', 'utf8');
 const timers = new Set();
-const fakeWindow = {};
-const context = {
-  window: fakeWindow,
+const fakeWindow = {
   setTimeout(callback, delay) {
-    const timer = setTimeout(() => { timers.delete(timer); callback(); }, delay);
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      callback();
+    }, delay);
     timers.add(timer);
     return timer;
   },
-  clearTimeout(timer) { clearTimeout(timer); timers.delete(timer); },
+  clearTimeout(timer) {
+    clearTimeout(timer);
+    timers.delete(timer);
+  },
 };
+const context = { window: fakeWindow };
 vm.runInNewContext(source, context, { filename: 'data/webrtc-reconnect.js' });
 
 const helper = fakeWindow.ESPLinkReconnect;
