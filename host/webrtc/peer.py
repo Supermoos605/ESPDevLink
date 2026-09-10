@@ -173,9 +173,6 @@ class WebRTCPeer:
                     f"(mid={mid!r}, local direction={local!r}, "
                     f"remote direction={remote!r})"
                 )
-                    f"WebRTC offer has no media direction for {transceiver.kind} "
-                    f"(local direction={local!r})"
-                )
 
         try:
             answer = await self.connection.createAnswer()
