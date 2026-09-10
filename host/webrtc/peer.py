@@ -53,6 +53,9 @@ class WebRTCPeer:
         self._thread = threading.Thread(target=self._run_loop, name="ESPLink-WebRTC", daemon=True)
         self._thread.start()
         if not self._ready.wait(timeout=2):
+            self.closed = True
+            self._loop.call_soon_threadsafe(self._loop.stop)
+            self._thread.join(timeout=2)
             raise RuntimeError("WebRTC event loop failed to start")
         try:
             self.connection = self._submit(self._create_connection()).result(timeout=10)
@@ -102,24 +105,34 @@ class WebRTCPeer:
                     self._input_events.append(event_dict)
                 self.input_backend.handle(event)
 
-        if self.video_mode == "desktop":
-            self.video_track = DesktopVideoTrack(
-                display_index=self.display_index,
-                target_fps=CAPTURE_FPS,
-            )
-            connection.addTrack(self.video_track)
-        elif self.video_mode == "test":
-            self.video_track = TestVideoTrack()
-            connection.addTrack(self.video_track)
+        try:
+            if self.video_mode == "desktop":
+                self.video_track = DesktopVideoTrack(
+                    display_index=self.display_index,
+                    target_fps=CAPTURE_FPS,
+                )
+                connection.addTrack(self.video_track)
+            elif self.video_mode == "test":
+                self.video_track = TestVideoTrack()
+                connection.addTrack(self.video_track)
 
-        if self.audio_enabled:
-            try:
-                self.audio_track = DesktopAudioTrack()
-            except RuntimeError as exc:
-                self.audio_error = str(exc)
-            else:
-                connection.addTrack(self.audio_track)
-        return connection
+            if self.audio_enabled:
+                try:
+                    self.audio_track = DesktopAudioTrack()
+                except RuntimeError as exc:
+                    self.audio_error = str(exc)
+                else:
+                    connection.addTrack(self.audio_track)
+            return connection
+        except Exception:
+            if self.video_track is not None:
+                self.video_track.stop()
+                self.video_track = None
+            if self.audio_track is not None:
+                self.audio_track.stop()
+                self.audio_track = None
+            await connection.close()
+            raise
 
     def _submit(self, coroutine) -> Future:
         if self.closed:
