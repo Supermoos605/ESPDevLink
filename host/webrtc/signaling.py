@@ -117,6 +117,11 @@ class HostSignaling:
                     return peer
             peer.receive(message)
             if message_type == "offer" and peer.rtc is not None:
+                # Do not negotiate the same peer twice. A browser retry should
+                # create a fresh session/peer so a failed or stale RTC state can
+                # never be reused accidentally.
+                if peer.state == "connected" or peer.remote_description_set:
+                    raise ValueError("WebRTC peer already negotiated; create a new session for retry")
                 try:
                     answer = peer.rtc.accept_offer(message["sdp"])
                     peer.remote_description_set = True
