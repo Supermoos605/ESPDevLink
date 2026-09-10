@@ -161,8 +161,18 @@ class WebRTCPeer:
         for transceiver in self.connection.getTransceivers():
             remote = getattr(transceiver, "remoteDirection", None)
             local = getattr(transceiver, "direction", None)
+            # aiortc can leave remoteDirection unset for a media section that
+            # Safari offered without a usable direction. Report the exact
+            # transceiver/m-line context instead of letting SDP generation
+            # fail later with the opaque "None is not in list" exception.
             if remote is None:
+                mid = getattr(transceiver, "mid", None)
+                kind = getattr(transceiver, "kind", "unknown")
                 raise ValueError(
+                    f"WebRTC offer has no usable media direction for {kind} "
+                    f"(mid={mid!r}, local direction={local!r}, "
+                    f"remote direction={remote!r})"
+                )
                     f"WebRTC offer has no media direction for {transceiver.kind} "
                     f"(local direction={local!r})"
                 )
