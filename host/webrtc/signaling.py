@@ -166,7 +166,9 @@ class HostSignaling:
                     peer.send({"type": "error", "code": "webrtc_ice_failed", "message": "WebRTC ICE candidate was rejected. Check the host terminal for details."})
             elif message_type == "offer" and peer.rtc is None:
                 peer.state = "error"
-                peer.send({"type": "error", "code": "webrtc_unavailable", "message": "WebRTC peer initialization failed. Check the host terminal for the actual error."})
+                # This is a terminal peer state, so bypass HostPeer.send().
+                # send() intentionally rejects normal messages after failure.
+                peer.outbound.append({"type": "error", "code": "webrtc_unavailable", "message": "WebRTC peer initialization failed. Check the host terminal for the actual error."})
             return peer
 
     def signal_result(self, peer_id: str, session_id: str, message: dict) -> dict:
