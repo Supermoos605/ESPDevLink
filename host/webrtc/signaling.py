@@ -147,6 +147,12 @@ class HostSignaling:
                 peer.send({"type": "error", "code": "webrtc_unavailable", "message": "WebRTC peer initialization failed. Check the host terminal for the actual error."})
             return peer
 
+    def signal_result(self, peer_id: str, session_id: str, message: dict) -> dict:
+        """Signal a peer and snapshot its outbound queue under one lock."""
+        with self._lock:
+            peer = self.signal(peer_id, session_id, message)
+            return {"peer_id": peer.peer_id, "state": peer.state, "outbound": list(peer.outbound)}
+
     def drain_outbound(self, peer_id: str, session_id: str) -> list[dict]:
         """Atomically return and clear queued messages for a peer."""
         with self._lock:
@@ -172,6 +178,8 @@ class HostSignaling:
         try:
             if peer.rtc is not None:
                 peer.rtc.close()
+        except Exception as exc:
+            print(f"[WebRTC] Peer cleanup failed: {exc!r}")
         finally:
             peer.rtc = None
             peer.state = "closed"
