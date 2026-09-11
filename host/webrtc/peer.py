@@ -176,13 +176,14 @@ class WebRTCPeer:
             # transceiver/m-line context instead of letting SDP generation
             # fail later with the opaque "None is not in list" exception.
             if remote is None:
-                mid = getattr(transceiver, "mid", None)
-                kind = getattr(transceiver, "kind", "unknown")
-                raise ValueError(
-                    f"WebRTC offer has no usable media direction for {kind} "
-                    f"(mid={mid!r}, local direction={local!r}, "
-                    f"remote direction={remote!r})"
-                )
+                # A media section without an explicit direction uses the SDP
+                # default of sendrecv. Let aiortc continue with that semantic
+                # instead of surfacing an opaque negotiation failure.
+                remote = "sendrecv"
+                try:
+                    transceiver._offerDirection = remote
+                except AttributeError:
+                    pass
 
         try:
             answer = await self.connection.createAnswer()
