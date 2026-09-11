@@ -161,6 +161,15 @@ class WebRTCPeer:
         offer = RTCSessionDescription(sdp=sdp, type="offer")
         await self.connection.setRemoteDescription(offer)
 
+        negotiated = []
+        for transceiver in self.connection.getTransceivers():
+            negotiated.append(
+                f"{transceiver.kind}: local={getattr(transceiver, 'direction', None)!r}, "
+                f"remote={getattr(transceiver, 'remoteDirection', None)!r}, "
+                f"mid={getattr(transceiver, 'mid', None)!r}"
+            )
+        print("[WebRTC] Remote media negotiation: " + "; ".join(negotiated))
+
         # Safari/iPadOS is particularly sensitive to media-section direction.
         # Validate the negotiated directions before asking aiortc to generate
         # the answer. A missing direction is what ultimately becomes the
