@@ -1,0 +1,10 @@
+# ESPDevLink remote HTTPS reverse proxy example.
+# Replace stream.example.com with your DNS name.
+# Point DNS to the public address of the network hosting the Windows PC.
+#
+# The Windows host itself remains on HTTP localhost/LAN port 8765.
+# Caddy terminates HTTPS and forwards signaling/UI traffic to ESPDevLink.
+
+stream.example.com {
+    reverse_proxy 127.0.0.1:8765
+}
