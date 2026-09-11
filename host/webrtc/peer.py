@@ -23,11 +23,11 @@ from .windows_input import WindowsInputBackend
 
 
 class WebRTCPeer:
+    """Own an aiortc peer on a persistent asyncio event-loop thread."""
+
     @staticmethod
     def _normalize_offer_direction(direction: str | None) -> str:
         return direction or "sendrecv"
-
-    """Own an aiortc peer on a persistent asyncio event-loop thread."""
 
     def __init__(
         self,
