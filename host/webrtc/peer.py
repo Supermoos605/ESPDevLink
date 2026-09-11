@@ -183,10 +183,7 @@ class WebRTCPeer:
                 # SDP defaults an omitted direction to sendrecv. Keep the
                 # fallback in one place so Safari offers remain negotiable.
                 remote = self._normalize_offer_direction(remote)
-                try:
-                    transceiver._offerDirection = remote
-                except AttributeError:
-                    pass
+                transceiver._offerDirection = remote
 
         try:
             answer = await self.connection.createAnswer()
