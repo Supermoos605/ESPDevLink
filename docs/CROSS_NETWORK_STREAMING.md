@@ -51,3 +51,37 @@ Opening the host HTTP port alone is not a complete remote-streaming solution. It
 4. Test signaling and ICE failure messages independently of desktop capture.
 5. Test with a private relay or tunnel before exposing the host publicly.
 6. Add remote-mode UI only after the network path is proven.
+
+
+## Recommended remote deployment
+
+The Windows host serves the complete ESPLink browser UI as well as its signaling API. This means a remote browser does not need access to the ESP32 at all: it can open the configured public host URL directly.
+
+For HTTPS, put a reverse proxy in front of the host. An example Caddy configuration is in `deploy/Caddyfile.example`.
+
+Set the host configuration:
+
+```powershell
+$env:ESPLINK_PUBLIC_URL="https://stream.example.com"
+$env:ESPLINK_CORS_ORIGINS="http://steamlink.local"
+$env:ESPLINK_ICE_SERVERS='[{"urls":["stun:stun.example.com:3478"]},{"urls":["turns:turn.example.com:5349"],"username":"temporary-user","credential":"temporary-password"}]'
+```
+
+If the ESP32 is reachable at a different origin, include that exact origin in `ESPLINK_CORS_ORIGINS`. Do not use `*` for remote deployments.
+
+### Remote security
+
+Remote authorization attempts are rate-limited by client IP. Authenticated API endpoints still require a valid host session, and WebRTC peer IDs are bound to that session.
+
+Do not publish the raw HTTP service directly when an HTTPS reverse proxy is available. Use a strong authorization code, HTTPS, restricted TURN credentials, and a firewall that exposes only the reverse-proxy entry point.
+
+### Remote connection flow
+
+1. Open the public HTTPS URL from the remote phone/tablet.
+2. Authenticate with the ESPLink authorization code.
+3. The browser creates a WebRTC receive-only media session.
+4. ICE attempts direct connectivity using configured STUN/host candidates.
+5. If direct connectivity fails and TURN is configured, WebRTC can use the TURN relay.
+6. Video, audio, and the input data channel then travel over the established WebRTC connection.
+
+The ESP32 remains the LAN gateway/discovery device. The Windows host is the remote browser's signaling and WebRTC endpoint.
