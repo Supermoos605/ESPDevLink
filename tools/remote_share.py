@@ -1,50 +1,18 @@
 #!/usr/bin/env python3
-"""Start an ESPDevLink Cloudflare Quick Tunnel and email its URL with Gmail SMTP.
-
-Credentials are read from environment variables:
-  ESPDEVLINK_EMAIL_FROM
-  ESPDEVLINK_EMAIL_TO
-  ESPDEVLINK_GMAIL_APP_PASSWORD
-
-The app password is never stored in the repository.
-"""
+"""Start an ESPDevLink Cloudflare Quick Tunnel and print its URL."""
 
 import os
 import re
 import signal
-import smtplib
 import subprocess
 import sys
 import time
-from email.message import EmailMessage
-from pathlib import Path
 
 
 HOST_URL = os.environ.get("ESPDEVLINK_LOCAL_URL", "http://127.0.0.1:8765")
 CLOUDFLARED = os.environ.get("CLOUDFLARED_PATH", "cloudflared")
 URL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 TUNNEL_START_TIMEOUT = 30
-
-
-def send_email(url: str) -> None:
-    sender = os.environ["ESPDEVLINK_EMAIL_FROM"]
-    recipient = os.environ["ESPDEVLINK_EMAIL_TO"]
-    password = os.environ["ESPDEVLINK_GMAIL_APP_PASSWORD"]
-
-    msg = EmailMessage()
-    msg["From"] = sender
-    msg["To"] = recipient
-    msg["Subject"] = "ESPDevLink remote connection"
-    msg.set_content(
-        "ESPDevLink Cloudflare Quick Tunnel is ready.\n\n"
-        f"Open this URL from your remote device:\n{url}\n\n"
-        "This is a temporary Cloudflare Quick Tunnel URL and will stop "
-        "when the ESPDevLink sharing script exits."
-    )
-
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as smtp:
-        smtp.login(sender, password)
-        smtp.send_message(msg)
 
 
 def main() -> int:
@@ -86,18 +54,7 @@ def main() -> int:
             return 1
 
         print(f"[ESPDevLink] Public URL: {public_url}")
-        print("[ESPDevLink] Sending URL by Gmail...")
-
-        try:
-            send_email(public_url)
-        except KeyError as exc:
-            print(f"[ERROR] Missing environment variable: {exc.args[0]}")
-            return 1
-        except smtplib.SMTPException as exc:
-            print(f"[ERROR] Gmail SMTP failed: {exc}")
-            return 1
-
-        print("[ESPDevLink] URL emailed successfully.")
+        print(f"[ESPDevLink] Public URL: {public_url}")
         print("[ESPDevLink] Tunnel is running. Press Ctrl+C to stop.")
 
         while tunnel.poll() is None:
