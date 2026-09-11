@@ -38,5 +38,11 @@ class WebRTCPeerValidationTests(unittest.TestCase):
         self.assertEqual(candidate.sdpMLineIndex, 0)
 
 
+    def test_offer_direction_helper_accepts_missing_direction(self):
+        # SDP direction defaults to sendrecv when omitted; keep this behavior
+        # covered so Safari/iPadOS offers don't regress to opaque failures.
+        self.assertEqual(WebRTCPeer._normalize_offer_direction(None), "sendrecv")
+        self.assertEqual(WebRTCPeer._normalize_offer_direction("recvonly"), "recvonly")
+
 if __name__ == "__main__":
     unittest.main()
