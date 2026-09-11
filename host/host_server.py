@@ -240,7 +240,7 @@ class HostHandler(BaseHTTPRequestHandler):
                     self.send_json({"ok": True, "pc": api.status()["host"]["name"], "ip": api.status()["network"]["host"], "state": "CONNECTING", "game": game_name})
                     return
                 game_definition = api.games.get(game["id"])
-                if game_definition.id != "desktop" and game_definition.executable:
+                if game_definition.id != "desktop" and (game_definition.launcher.lower() == "steam" or game_definition.executable):
                     api.launch_game(game_definition.id)
                 else:
                     api.host.status_model.update(game=game_definition.name)
