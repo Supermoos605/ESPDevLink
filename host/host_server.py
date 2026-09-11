@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 import threading
 import time
+from collections import defaultdict, deque
 from secrets import token_urlsafe
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
@@ -16,12 +17,16 @@ from .config import (
     COMPUTER_NAME,
     HEARTBEAT_SECONDS,
     PUBLIC_URL,
+    CORS_ORIGINS,
 )
 
 HOST = "0.0.0.0"
 PORT = 8765
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 api = HostAPI()
+_auth_attempts = defaultdict(deque)
+_AUTH_WINDOW_SECONDS = 60
+_AUTH_MAX_ATTEMPTS = 10
 
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -104,10 +109,15 @@ class ESP32Heartbeat:
 class HostHandler(BaseHTTPRequestHandler):
     def send_json(self, payload, status=200):
         data = json.dumps(payload).encode("utf-8")
+        origin = self.headers.get("Origin", "")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        if origin and origin.rstrip("/") in CORS_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-ESPLink-Session, X-ESPLink-Host-Session, X-ESPLink-Peer")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Content-Length", str(len(data)))
@@ -164,6 +174,10 @@ class HostHandler(BaseHTTPRequestHandler):
         return True
 
     def do_OPTIONS(self):
+        origin = self.headers.get("Origin", "")
+        if origin and origin.rstrip("/") not in CORS_ORIGINS:
+            self.send_json({"ok": False, "error": "Origin not allowed"}, 403)
+            return
         self.send_json({"ok": True})
 
     def do_GET(self):
@@ -215,6 +229,15 @@ class HostHandler(BaseHTTPRequestHandler):
         try:
             path = urlsplit(self.path).path
             if path in {"/api/auth", "/api/auth/login"}:
+                now = time.monotonic()
+                key = self.client_address[0]
+                attempts = _auth_attempts[key]
+                while attempts and now - attempts[0] > _AUTH_WINDOW_SECONDS:
+                    attempts.popleft()
+                if len(attempts) >= _AUTH_MAX_ATTEMPTS:
+                    self.send_json({"ok": False, "error": "Too many authorization attempts; try again later."}, 429)
+                    return
+                attempts.append(now)
                 body = self.read_json()
                 result = api.authorize(str(body.get("code", "")), str(body.get("client_id") or token_urlsafe(12)))
                 self.send_json({"ok": True, **result})
