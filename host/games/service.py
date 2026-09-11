@@ -31,7 +31,11 @@ class GameService:
     def launch(self, game_id: str) -> dict:
         self._refresh_processes()
         game = self.get(game_id)
-        if game.id == "desktop" or not game.executable:
+        if game.id == "desktop":
+            raise RuntimeError("Desktop is not a launchable game")
+        if game.launcher.lower() == "steam" and not game.steam_app_id:
+            raise RuntimeError("Steam game is missing its App ID")
+        if game.launcher.lower() != "steam" and not game.executable:
             raise RuntimeError("This game does not have a launchable executable configured")
         if game.id in self._processes:
             raise RuntimeError("This game is already running")
