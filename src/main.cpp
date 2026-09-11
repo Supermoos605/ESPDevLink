@@ -22,6 +22,7 @@ constexpr size_t MAX_HEARTBEAT_BYTES = 2048;
 AsyncWebServer server(80);
 String pcName = "Gaming PC";
 String pcIP = "";
+String signalingURL = "";
 String currentGame = "";
 String streamState = "Ready";
 String wifiMode = "disconnected";
@@ -143,6 +144,7 @@ void handleHeartbeatBody(AsyncWebServerRequest* request, uint8_t* data, size_t l
     }
     if (doc["name"].is<const char*>()) pcName = doc["name"].as<String>();
     if (doc["ip"].is<const char*>()) pcIP = doc["ip"].as<String>();
+    if (doc["signaling_url"].is<const char*>()) signalingURL = doc["signaling_url"].as<String>();
     if (doc["game"].is<const char*>()) currentGame = doc["game"].as<String>();
     if (doc["stream"].is<const char*>()) streamState = doc["stream"].as<String>();
     pcKnown = true;
@@ -252,6 +254,7 @@ void setup() {
         JsonDocument doc;
         doc["name"] = pcName;
         doc["ip"] = pcIP;
+        doc["signaling_url"] = signalingURL;
         doc["online"] = pcOnline();
         doc["game"] = currentGame;
         doc["stream"] = streamState;
