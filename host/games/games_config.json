@@ -5,6 +5,40 @@
       "name": "Desktop",
       "launcher": "windows",
       "executable": ""
+    },
+    {
+      "id": "the-finals",
+      "name": "The Finals",
+      "launcher": "steam",
+      "steam_app_id": "2073850",
+      "executable": ""
+    },
+    {
+      "id": "nfs-heat",
+      "name": "NFS Heat",
+      "launcher": "steam",
+      "steam_app_id": "1222680",
+      "executable": ""
+    },
+    {
+      "id": "portal-2",
+      "name": "Portal 2",
+      "launcher": "steam",
+      "steam_app_id": "620",
+      "executable": ""
+    },
+    {
+      "id": "balatro",
+      "name": "Balatro",
+      "launcher": "steam",
+      "steam_app_id": "2379780",
+      "executable": ""
+    },
+    {
+      "id": "roblox",
+      "name": "Roblox",
+      "launcher": "windows",
+      "executable": "C:\\Users\\owenv\\AppData\\Local\\Roblox\\Versions\\version-c5aecda2245e4fae\\RobloxPlayerBeta.exe"
     }
   ]
 }

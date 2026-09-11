@@ -10,6 +10,7 @@ class Game:
     name: str
     launcher: str
     executable: str = ""
+    steam_app_id: str = ""
 
 
 def discover_games(config_path: str | Path) -> list[Game]:
@@ -24,6 +25,7 @@ def discover_games(config_path: str | Path) -> list[Game]:
             name=str(item.get("name", "Untitled Game")).strip(),
             launcher=str(item.get("launcher", "unknown")).strip(),
             executable=str(item.get("executable", "")).strip(),
+            steam_app_id=str(item.get("steam_app_id", "")).strip(),
         )
         for item in entries
         if str(item.get("name", "")).strip()

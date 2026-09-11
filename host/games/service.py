@@ -1,6 +1,7 @@
 """Game listing and launch service for the ESPLink host."""
 from pathlib import Path
 import subprocess
+import os
 
 from .manager import discover_games, games_payload, Game
 
@@ -34,7 +35,14 @@ class GameService:
             raise RuntimeError("This game does not have a launchable executable configured")
         if game.id in self._processes:
             raise RuntimeError("This game is already running")
-        process = subprocess.Popen([game.executable])
+        if game.launcher.lower() == "steam":
+            if not game.steam_app_id:
+                raise RuntimeError("Steam game is missing its App ID")
+            if os.name != "nt":
+                raise RuntimeError("Steam launching is supported on Windows only")
+            process = subprocess.Popen(["cmd", "/c", "start", "", f"steam://rungameid/{game.steam_app_id}"])
+        else:
+            process = subprocess.Popen([game.executable])
         self._processes[game.id] = process
         self.running[game.id] = process.pid
         return {"id": game.id, "name": game.name, "pid": process.pid, "state": "launched"}
