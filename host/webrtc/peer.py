@@ -162,8 +162,15 @@ class WebRTCPeer:
         # the answer. A missing direction is what ultimately becomes the
         # cryptic "None is not in list" ValueError in aiortc's SDP code.
         for transceiver in self.connection.getTransceivers():
+            mid = getattr(transceiver, "mid", None)
             remote = getattr(transceiver, "remoteDirection", None)
             local = getattr(transceiver, "direction", None)
+            # Transceivers created locally for an attached track can exist
+            # before aiortc assigns them to a remote m-line. They legitimately
+            # have mid=None and remoteDirection=None, so only validate
+            # transceivers that actually belong to the browser's offer.
+            if mid is None:
+                continue
             # aiortc can leave remoteDirection unset for a media section that
             # Safari offered without a usable direction. Report the exact
             # transceiver/m-line context instead of letting SDP generation
