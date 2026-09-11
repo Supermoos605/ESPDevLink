@@ -197,7 +197,14 @@ class HostHandler(BaseHTTPRequestHandler):
                 if session_id is not None:
                     status = api.status()["host"]
                     network = api.status()["network"]
-                    self.send_json({"name": status["name"], "ip": network["host"], "online": status["online"], "game": status["game"], "stream": status["stream"]})
+                    self.send_json({
+                        "name": status["name"],
+                        "ip": network["host"],
+                        "online": status["online"],
+                        "game": status["game"],
+                        "stream": status["stream"],
+                        "signaling_url": PUBLIC_URL,
+                    })
             elif path == "/api/stream/state":
                 session_id = self.require_session()
                 if session_id is not None:
