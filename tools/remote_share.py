@@ -54,7 +54,6 @@ def main() -> int:
             return 1
 
         print(f"[ESPDevLink] Public URL: {public_url}")
-        print(f"[ESPDevLink] Public URL: {public_url}")
         print("[ESPDevLink] Tunnel is running. Press Ctrl+C to stop.")
 
         while tunnel.poll() is None:
