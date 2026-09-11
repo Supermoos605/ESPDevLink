@@ -151,6 +151,9 @@ class WebRTCPeer:
         if not isinstance(sdp, str) or not sdp.strip():
             raise ValueError("WebRTC offer SDP must be a non-empty string")
 
+        # Safari may include application/metadata sections that aiortc does
+        # not need for the actual media answer. Keep the browser's offer intact
+        # and only negotiate the media sections represented by our tracks.
         offer = RTCSessionDescription(sdp=sdp, type="offer")
         await self.connection.setRemoteDescription(offer)
 
