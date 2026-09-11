@@ -13,6 +13,9 @@ DEFAULT_COMPUTER_NAME = socket.gethostname()
 DEFAULT_CAPTURE_FPS = 30
 
 ESP32_URL = os.environ.get("ESPLINK_ESP32", DEFAULT_ESP32_URL).rstrip("/")
+# Optional externally reachable signaling URL for remote-network browsers.
+# Example: https://stream.example.com
+PUBLIC_URL = os.environ.get("ESPLINK_PUBLIC_URL", "").strip().rstrip("/")
 COMPUTER_NAME = os.environ.get("ESPLINK_COMPUTER_NAME", DEFAULT_COMPUTER_NAME).strip() or DEFAULT_COMPUTER_NAME
 HEARTBEAT_SECONDS = max(1, float(os.environ.get("ESPLINK_HEARTBEAT", DEFAULT_HEARTBEAT_SECONDS)))
 CAPTURE_FPS = max(1, int(os.environ.get("ESPLINK_CAPTURE_FPS", DEFAULT_CAPTURE_FPS)))
