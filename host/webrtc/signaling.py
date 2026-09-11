@@ -78,7 +78,7 @@ class HostSignaling:
             rtc = None
             if self.enable_rtc:
                 try:
-                    rtc = WebRTCPeer(video_mode=mode, input_enabled=self.input_enabled)
+                    rtc = WebRTCPeer(video_mode=mode, input_enabled=self.input_enabled, audio_enabled=_env_bool("ESPLINK_AUDIO_ENABLED", True))
                 except RuntimeError as exc:
                     print(f"[WebRTC] Peer initialization failed: {exc}")
                     raise RuntimeError(f"WebRTC peer initialization failed: {exc}") from exc
