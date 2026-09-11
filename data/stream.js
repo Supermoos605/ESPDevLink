@@ -27,8 +27,18 @@ if(location.port==='8765'||location.hostname==='127.0.0.1'||location.hostname===
   hostBase=location.origin;
 }else{
   const pc=await request('','/api/pc');
-  if(!pc||!pc.ip)throw new Error('The ESP32 did not provide the host IP address.');
-  hostBase=`http://${pc.ip}:8765`;
+  if(!pc)throw new Error('The ESP32 did not provide host connection information.');
+  // Prefer an explicitly configured public signaling URL for remote networks.
+  // Fall back to the LAN host address for the existing local-network path.
+  if(pc.signaling_url){
+    hostBase=String(pc.signaling_url).replace(/\\/$/,'');
+    diag('signaling endpoint','remote '+hostBase);
+  }else if(pc.ip){
+    hostBase=`http://${pc.ip}:8765`;
+    diag('signaling endpoint','LAN '+hostBase);
+  }else{
+    throw new Error('The ESP32 did not provide a host signaling address.');
+  }
 }
 window.ESPLinkHostBase=hostBase;await loginHost(interactive);const selected=localStorage.getItem('espLinkSelectedGame')||'Test Stream';return request(hostBase,'/api/connect',{method:'POST',body:JSON.stringify({game:selected,session_id:hostSession})});}
 function sendInput(type,action,data={}){if(inputChannel&&inputChannel.readyState==='open'){try{inputChannel.send(JSON.stringify({type,action,data}));}catch(error){diag('input send error',error.message);}}}
