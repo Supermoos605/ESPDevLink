@@ -13,6 +13,15 @@ The ESP32 is not the media relay and does not run the Windows game. It remains t
 
 ## Configuration
 
+The Windows host can publish an externally reachable signaling URL to the ESP32 with `ESPLINK_PUBLIC_URL`. When set, browsers using the ESP32 gateway prefer this URL instead of constructing `http://<LAN-PC-IP>:8765`. This is the first step toward remote-network connections; the URL must already route to the Windows host HTTP service.
+
+```powershell
+$env:ESPLINK_PUBLIC_URL="https://stream.example.com"
+```
+
+Keep the existing LAN setup unchanged by leaving `ESPLINK_PUBLIC_URL` empty. For an Internet-facing deployment, use HTTPS for the signaling endpoint.
+
+
 Set `ESPLINK_ICE_SERVERS` on the Windows host to a JSON array of ICE-server objects:
 
 ```powershell
@@ -37,7 +46,8 @@ Opening the host HTTP port alone is not a complete remote-streaming solution. It
 ## Safe development order
 
 1. Keep local LAN streaming unchanged.
-2. Validate ICE configuration before sending it to the browser.
-3. Test signaling and ICE failure messages independently of desktop capture.
-4. Test with a private relay or tunnel before exposing the host publicly.
-5. Add remote-mode UI only after the network path is proven.
+2. Configure and validate an externally reachable signaling URL.
+3. Validate ICE configuration before sending it to the browser.
+4. Test signaling and ICE failure messages independently of desktop capture.
+5. Test with a private relay or tunnel before exposing the host publicly.
+6. Add remote-mode UI only after the network path is proven.
