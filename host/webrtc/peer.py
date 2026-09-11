@@ -180,10 +180,9 @@ class WebRTCPeer:
             # transceiver/m-line context instead of letting SDP generation
             # fail later with the opaque "None is not in list" exception.
             if remote is None:
-                # A media section without an explicit direction uses the SDP
-                # default of sendrecv. Let aiortc continue with that semantic
-                # instead of surfacing an opaque negotiation failure.
-                remote = "sendrecv"
+                # SDP defaults an omitted direction to sendrecv. Keep the
+                # fallback in one place so Safari offers remain negotiable.
+                remote = self._normalize_offer_direction(remote)
                 try:
                     transceiver._offerDirection = remote
                 except AttributeError:
