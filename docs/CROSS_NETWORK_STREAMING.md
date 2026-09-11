@@ -35,7 +35,7 @@ The older `ESPLINK_STUN_URL` setting remains available for simple STUN-only setu
 
 ## Requirements for an internet connection
 
-- The browser must be able to reach the signaling endpoint.
+- The browser must be able to reach the signaling endpoint over HTTPS for remote deployments.
 - The signaling endpoint must be protected by the existing authorization/session mechanism.
 - The host and browser need compatible WebRTC support.
 - A TURN relay may be required because many networks block direct peer-to-peer connectivity.
@@ -85,3 +85,17 @@ Do not publish the raw HTTP service directly when an HTTPS reverse proxy is avai
 6. Video, audio, and the input data channel then travel over the established WebRTC connection.
 
 The ESP32 remains the LAN gateway/discovery device. The Windows host is the remote browser's signaling and WebRTC endpoint.
+
+
+## Remote deployment is now code-complete
+
+The repository contains the remote signaling URL path, HTTPS enforcement for public URLs, restricted CORS handling, authorization rate limiting, shared STUN/TURN configuration, and an HTTPS reverse-proxy example. No additional ESP32 firmware is required for a remote browser to connect directly to the Windows host.
+
+The remaining steps are deployment-specific rather than source-code changes:
+
+1. Obtain a DNS name for the Windows host's public endpoint.
+2. Run the reverse proxy and expose only its HTTPS port.
+3. Set `ESPLINK_PUBLIC_URL` to that HTTPS address.
+4. Configure `ESPLINK_ICE_SERVERS` with STUN and, preferably, TURN credentials.
+5. Confirm the ESP32 heartbeat is reporting the public URL.
+6. Test from a device on a different network.
