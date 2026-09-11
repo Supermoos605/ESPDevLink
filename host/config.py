@@ -19,6 +19,9 @@ ESP32_URL = os.environ.get("ESPLINK_ESP32", DEFAULT_ESP32_URL).rstrip("/")
 PUBLIC_URL = os.environ.get("ESPLINK_PUBLIC_URL", "").strip().rstrip("/")
 _DEFAULT_CORS_ORIGIN = f"{urlsplit(ESP32_URL).scheme}://{urlsplit(ESP32_URL).netloc}" if urlsplit(ESP32_URL).netloc else ""
 CORS_ORIGINS = [item.strip().rstrip("/") for item in os.environ.get("ESPLINK_CORS_ORIGINS", _DEFAULT_CORS_ORIGIN).split(",") if item.strip()]
+PUBLIC_HTTPS = PUBLIC_URL.startswith("https://")
+if PUBLIC_URL and not PUBLIC_HTTPS:
+    raise RuntimeError("ESPLINK_PUBLIC_URL must use https:// for remote deployments")
 COMPUTER_NAME = os.environ.get("ESPLINK_COMPUTER_NAME", DEFAULT_COMPUTER_NAME).strip() or DEFAULT_COMPUTER_NAME
 HEARTBEAT_SECONDS = max(1, float(os.environ.get("ESPLINK_HEARTBEAT", DEFAULT_HEARTBEAT_SECONDS)))
 CAPTURE_FPS = max(1, int(os.environ.get("ESPLINK_CAPTURE_FPS", DEFAULT_CAPTURE_FPS)))
