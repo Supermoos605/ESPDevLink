@@ -7,7 +7,7 @@ import signal
 import subprocess
 import sys
 import time
-import urllib.parse
+import json
 import urllib.request
 from pathlib import Path
 
@@ -33,12 +33,16 @@ def publish_url(public_url: str) -> bool:
         print("[ERROR] ESPDEVLINK_KEYVAL_KEY must be at least 10 characters.")
         return False
 
-    encoded_key = urllib.parse.quote(KEYVAL_KEY, safe="")
-    encoded_url = urllib.parse.quote(public_url, safe="")
-    endpoint = f"{KEYVAL_BASE_URL}/set/{encoded_key}/{encoded_url}"
+    endpoint = f"{KEYVAL_BASE_URL}/set"
+    body = json.dumps({"key": KEYVAL_KEY, "val": public_url}).encode("utf-8")
 
     try:
-        request = urllib.request.Request(endpoint, method="POST")
+        request = urllib.request.Request(
+            endpoint,
+            data=body,
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
         with urllib.request.urlopen(request, timeout=15) as response:
             result = response.read().decode("utf-8", errors="replace").strip()
         print(f"[ESPDevLink] Published Quick Tunnel URL: {result}")
