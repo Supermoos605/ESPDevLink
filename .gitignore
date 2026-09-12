@@ -7,7 +7,8 @@ __pycache__/
 .env
 .venv/
 
-# Ignore the entire local ESP32 credentials directory
-/include/
+# Ignore private credential files; keep safe example templates in Git
+/include/espdevlink_secrets.h
+/include/espdevlink_secrets.py
 
 host/local_config.py

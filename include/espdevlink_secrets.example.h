@@ -1,8 +1,7 @@
 #pragma once
 
-// PRIVATE LOCAL CONFIGURATION
-// Copy this file's contents into your local include/espdevlink_secrets.h.
-// Never commit real credentials to GitHub.
+// Copy this file to include/espdevlink_secrets.h and replace the placeholders.
+// The real file is ignored by Git.
 
 #define ESPDEVLINK_WIFI_SSID "YOUR_WIFI_NAME"
 #define ESPDEVLINK_WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
