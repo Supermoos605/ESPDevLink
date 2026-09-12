@@ -13,7 +13,7 @@ const char* WIFI_SSID = "YOUR_WIFI_NAME";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const char* ACCESS_CODE = "YOUR_ACCESS_CODE";
 
-// Cross-network rendezvous settings. Leave RENDEZVOUS_URL empty to disable remote lookup.
+// Cross-network rendezvous settings. Remote lookup is enabled when the KeyVal key is configured.
 const char* KEYVAL_BASE_URL = "https://api.keyval.org";
 // TODO: move this to persistent configuration before release.
 const char* KEYVAL_KEY = "CHANGE_ME_TO_A_LONG_RANDOM_KEY";
@@ -30,7 +30,6 @@ constexpr size_t MAX_HEARTBEAT_BYTES = 2048;
 AsyncWebServer server(80);
 String pcName = "Gaming PC";
 String pcIP = "";
-String signalingURL = "";
 String currentGame = "";
 String streamState = "Ready";
 String wifiMode = "disconnected";
@@ -190,7 +189,6 @@ void handleHeartbeatBody(AsyncWebServerRequest* request, uint8_t* data, size_t l
     }
     if (doc["name"].is<const char*>()) pcName = doc["name"].as<String>();
     if (doc["ip"].is<const char*>()) pcIP = doc["ip"].as<String>();
-    if (doc["signaling_url"].is<const char*>()) signalingURL = doc["signaling_url"].as<String>();
     if (doc["game"].is<const char*>()) currentGame = doc["game"].as<String>();
     if (doc["stream"].is<const char*>()) streamState = doc["stream"].as<String>();
     pcKnown = true;
@@ -315,7 +313,6 @@ void setup() {
         JsonDocument doc;
         doc["name"] = pcName;
         doc["ip"] = pcIP;
-        doc["signaling_url"] = signalingURL;
         doc["online"] = pcOnline();
         doc["game"] = currentGame;
         doc["stream"] = streamState;
