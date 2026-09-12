@@ -16,7 +16,6 @@ from .config import (
     AUTHORIZATION_CODE,
     COMPUTER_NAME,
     HEARTBEAT_SECONDS,
-    PUBLIC_URL,
     CORS_ORIGINS,
 )
 
@@ -78,7 +77,7 @@ class ESP32Heartbeat:
             "ip": network["host"],
             "game": status["game"],
             "stream": status["stream"],
-            "signaling_url": PUBLIC_URL,
+            "signaling_url": "",
         }).encode("utf-8")
         request = Request(
             f"{ESP32_URL}/api/pc/heartbeat",
