@@ -201,7 +201,6 @@ class HostHandler(BaseHTTPRequestHandler):
                         "online": status["online"],
                         "game": status["game"],
                         "stream": status["stream"],
-                        "signaling_url": PUBLIC_URL,
                     })
             elif path == "/api/stream/state":
                 session_id = self.require_session()
