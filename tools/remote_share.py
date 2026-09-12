@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Start an ESPDevLink Cloudflare Quick Tunnel and print its URL."""
+"""Start an ESPDevLink Cloudflare Quick Tunnel and publish its URL."""
 
 import os
 import re
@@ -9,7 +9,6 @@ import sys
 import time
 import urllib.parse
 import urllib.request
-
 
 HOST_URL = os.environ.get("ESPDEVLINK_LOCAL_URL", "http://127.0.0.1:8765")
 CLOUDFLARED = os.environ.get("CLOUDFLARED_PATH", "cloudflared")
@@ -22,7 +21,6 @@ KEYVAL_KEY = os.environ.get("ESPDEVLINK_KEYVAL_KEY", "").strip()
 def publish_url(public_url: str) -> bool:
     if len(KEYVAL_KEY) < 10:
         print("[ERROR] ESPDEVLINK_KEYVAL_KEY must be at least 10 characters.")
-        print("[ESPDevLink] Quick Tunnel cannot be published without a rendezvous key.")
         return False
 
     endpoint = (
@@ -33,7 +31,7 @@ def publish_url(public_url: str) -> bool:
     try:
         with urllib.request.urlopen(endpoint, timeout=15) as response:
             result = response.read().decode("utf-8", errors="replace").strip()
-        print(f"[ESPDevLink] Published Quick Tunnel URL to KeyVal: {result}")
+        print(f"[ESPDevLink] Published Quick Tunnel URL: {result}")
         return True
     except Exception as exc:
         print(f"[ERROR] KeyVal publish failed: {exc}")
@@ -41,7 +39,7 @@ def publish_url(public_url: str) -> bool:
 
 
 def main() -> int:
-    print(f"[ESPDevLink] Starting Cloudflare Quick Tunnel for {HOST_URL}")
+    print(f"[ESPDevLink] Starting Quick Tunnel for {HOST_URL}")
 
     try:
         tunnel = subprocess.Popen(
@@ -81,8 +79,8 @@ def main() -> int:
         print(f"[ESPDevLink] Public URL: {public_url}")
         if not publish_url(public_url):
             return 1
-        print("[ESPDevLink] Tunnel is running. Press Ctrl+C to stop.")
 
+        print("[ESPDevLink] Tunnel is running. Press Ctrl+C to stop.")
         while tunnel.poll() is None:
             time.sleep(1)
 
