@@ -14,7 +14,8 @@ const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const char* ACCESS_CODE = "YOUR_ACCESS_CODE";
 
 // Cross-network rendezvous settings. Leave RENDEZVOUS_URL empty to disable remote lookup.
-const char* RENDEZVOUS_URL = "";
+const char* KEYVAL_BASE_URL = "https://api.keyval.org";
+const char* KEYVAL_KEY = "";
 const char* RENDEZVOUS_DEVICE_ID = "gaming-pc";
 
 const char* MDNS_NAME = "steamlink";
@@ -45,7 +46,7 @@ constexpr unsigned long REMOTE_LOOKUP_INTERVAL_MS = 30000;
 bool pcOnline() { return pcKnown && millis() - lastPCHeartbeat <= PC_TIMEOUT_MS; }
 
 bool lookupRemoteURL() {
-    if (strlen(RENDEZVOUS_URL) == 0 || strlen(RENDEZVOUS_DEVICE_ID) == 0) {
+    if (strlen(KEYVAL_KEY) < 10 || strlen(RENDEZVOUS_DEVICE_ID) == 0) {
         remoteURL = "";
         remoteOnline = false;
         return false;
@@ -53,7 +54,7 @@ bool lookupRemoteURL() {
     WiFiClientSecure client;
     client.setInsecure();
     HTTPClient http;
-    String endpoint = String(RENDEZVOUS_URL) + "/api/lookup/" + RENDEZVOUS_DEVICE_ID;
+    String endpoint = String(KEYVAL_BASE_URL) + "/get/" + KEYVAL_KEY;
     if (!http.begin(client, endpoint)) {
         remoteOnline = false;
         return false;
@@ -67,14 +68,15 @@ bool lookupRemoteURL() {
     }
     String payload = http.getString();
     http.end();
-    JsonDocument doc;
-    if (deserializeJson(doc, payload) || !doc["ok"].is<bool>()) {
+    payload.trim();
+    if (!payload.startsWith("https://") || payload.indexOf(".trycloudflare.com") < 0) {
         remoteOnline = false;
+        remoteURL = "";
         return false;
     }
-    remoteOnline = doc["online"].as<bool>();
-    remoteURL = remoteOnline && doc["url"].is<const char*>() ? doc["url"].as<String>() : "";
-    return remoteOnline && remoteURL.length() > 0;
+    remoteURL = payload;
+    remoteOnline = true;
+    return true;
 }
 
 void sendJson(AsyncWebServerRequest* request, JsonDocument& doc, int code = 200) {
@@ -350,7 +352,7 @@ void setup() {
 
 void loop() {
     if (WiFi.status() == WL_CONNECTED && wifiMode != "station") wifiMode = "station";
-    if (WiFi.status() == WL_CONNECTED && strlen(RENDEZVOUS_URL) > 0 && millis() - remoteCheckedAt >= REMOTE_LOOKUP_INTERVAL_MS) {
+    if (WiFi.status() == WL_CONNECTED && strlen(KEYVAL_KEY) >= 10 && millis() - remoteCheckedAt >= REMOTE_LOOKUP_INTERVAL_MS) {
         lookupRemoteURL();
         remoteCheckedAt = millis();
     }
