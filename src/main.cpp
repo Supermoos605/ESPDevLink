@@ -15,7 +15,8 @@ const char* ACCESS_CODE = "YOUR_ACCESS_CODE";
 
 // Cross-network rendezvous settings. Leave RENDEZVOUS_URL empty to disable remote lookup.
 const char* KEYVAL_BASE_URL = "https://api.keyval.org";
-const char* KEYVAL_KEY = "";
+// TODO: move this to persistent configuration before release.
+const char* KEYVAL_KEY = "CHANGE_ME_TO_A_LONG_RANDOM_KEY";
 const char* RENDEZVOUS_DEVICE_ID = "gaming-pc";
 
 const char* MDNS_NAME = "steamlink";
