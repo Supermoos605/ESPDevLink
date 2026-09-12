@@ -1,0 +1,2 @@
+# ESPDevLink rendezvous server intentionally uses Python's standard library only.
+# No third-party packages are required.
