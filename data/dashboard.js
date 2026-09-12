@@ -23,7 +23,8 @@
     }
     set('dashHost', window.ESPLinkHostBase?.replace(/^https?:\/\//, '') || 'Not connected');
     set('dashGame', document.getElementById('gameName')?.textContent || selectedGame || 'Desktop');
-    set('dashAudio', video?.muted ? 'Muted' : 'Enabled');
+    const audio = document.querySelector('audio[data-esplink-audio]') || document.querySelector('audio');
+    set('dashAudio', audio?.muted ? 'Muted' : 'Enabled');
     set('dashReconnects', attempts ? `${attempts}/${maxAttempts}` : '0');
     set('dashLatency', 'Unavailable');
     if (video?.videoWidth && video?.videoHeight) set('dashVideo', `${video.videoWidth}×${video.videoHeight}`);
