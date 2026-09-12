@@ -6,6 +6,14 @@ so the same host can still be used with the local simulator.
 import json
 import os
 import socket
+import sys
+from pathlib import Path
+
+# Allow host scripts launched from the host/ directory to import the shared
+# private configuration stored in the repository-level include/ directory.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 DEFAULT_ESP32_URL = "http://steamlink.local"
 DEFAULT_HEARTBEAT_SECONDS = 2
