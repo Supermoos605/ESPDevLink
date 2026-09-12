@@ -5,11 +5,17 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
 
 // Replace these placeholders only in your local working copy before building.
 const char* WIFI_SSID = "YOUR_WIFI_NAME";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const char* ACCESS_CODE = "YOUR_ACCESS_CODE";
+
+// Cross-network rendezvous settings. Leave RENDEZVOUS_URL empty to disable remote lookup.
+const char* RENDEZVOUS_URL = "";
+const char* RENDEZVOUS_DEVICE_ID = "gaming-pc";
 
 const char* MDNS_NAME = "steamlink";
 const char* FALLBACK_AP_NAME = "ESPLink-Setup";
@@ -31,8 +37,45 @@ String pcSession = "";
 unsigned long lastPCHeartbeat = 0;
 bool pcKnown = false;
 bool mdnsReady = false;
+String remoteURL = "";
+bool remoteOnline = false;
+unsigned long remoteCheckedAt = 0;
+constexpr unsigned long REMOTE_LOOKUP_INTERVAL_MS = 30000;
 
 bool pcOnline() { return pcKnown && millis() - lastPCHeartbeat <= PC_TIMEOUT_MS; }
+
+bool lookupRemoteURL() {
+    if (strlen(RENDEZVOUS_URL) == 0 || strlen(RENDEZVOUS_DEVICE_ID) == 0) {
+        remoteURL = "";
+        remoteOnline = false;
+        return false;
+    }
+    WiFiClientSecure client;
+    client.setInsecure();
+    HTTPClient http;
+    String endpoint = String(RENDEZVOUS_URL) + "/api/lookup/" + RENDEZVOUS_DEVICE_ID;
+    if (!http.begin(client, endpoint)) {
+        remoteOnline = false;
+        return false;
+    }
+    http.setTimeout(5000);
+    int code = http.GET();
+    if (code != HTTP_CODE_OK) {
+        http.end();
+        remoteOnline = false;
+        return false;
+    }
+    String payload = http.getString();
+    http.end();
+    JsonDocument doc;
+    if (deserializeJson(doc, payload) || !doc["ok"].is<bool>()) {
+        remoteOnline = false;
+        return false;
+    }
+    remoteOnline = doc["online"].as<bool>();
+    remoteURL = remoteOnline && doc["url"].is<const char*>() ? doc["url"].as<String>() : "";
+    return remoteOnline && remoteURL.length() > 0;
+}
 
 void sendJson(AsyncWebServerRequest* request, JsonDocument& doc, int code = 200) {
     String output;
@@ -237,6 +280,19 @@ void setup() {
             body = "";
         });
 
+    server.on("/api/remote", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (millis() - remoteCheckedAt >= REMOTE_LOOKUP_INTERVAL_MS) {
+            lookupRemoteURL();
+            remoteCheckedAt = millis();
+        }
+        JsonDocument doc;
+        doc["ok"] = true;
+        doc["online"] = remoteOnline;
+        doc["url"] = remoteURL;
+        doc["device_id"] = RENDEZVOUS_DEVICE_ID;
+        sendJson(request, doc);
+    });
+
     server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* request) {
         JsonDocument doc;
         doc["status"] = "online";
@@ -247,6 +303,8 @@ void setup() {
         doc["wifi_mode"] = wifiMode;
         doc["wifi_rssi"] = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
         doc["pc_online"] = pcOnline();
+        doc["remote_online"] = remoteOnline;
+        doc["remote_url"] = remoteURL;
         sendJson(request, doc);
     });
 
@@ -292,4 +350,8 @@ void setup() {
 
 void loop() {
     if (WiFi.status() == WL_CONNECTED && wifiMode != "station") wifiMode = "station";
+    if (WiFi.status() == WL_CONNECTED && strlen(RENDEZVOUS_URL) > 0 && millis() - remoteCheckedAt >= REMOTE_LOOKUP_INTERVAL_MS) {
+        lookupRemoteURL();
+        remoteCheckedAt = millis();
+    }
 }
