@@ -1,0 +1,13 @@
+name = "espdevlink-rendezvous"
+main = "cloudflare-worker.js"
+compatibility_date = "2026-09-11"
+
+[vars]
+RECORD_TTL = "120"
+
+[[kv_namespaces]]
+binding = "ESPDEVLINK_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Store the registration token as a secret:
+# npx wrangler secret put REGISTRATION_TOKEN
