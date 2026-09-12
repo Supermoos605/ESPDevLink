@@ -13,6 +13,8 @@
     const attempts = typeof window.ESPLinkReconnect?.attempts === 'function' ? window.ESPLinkReconnect.attempts() : 0;
     const maxAttempts = Number(window.ESPLinkReconnect?.maxAttempts || 5);
     let connection = rawState;
+    const route = window.ESPLinkConnectionMode;
+    if (route && route !== 'DETECTING') set('dashConnection', route);
     if (rawState === 'ERROR' && attempts > 0 && attempts < maxAttempts) connection = 'RECONNECTING';
     if (rawState === 'ERROR' && attempts >= maxAttempts) connection = 'OFFLINE';
     set('dashConnection', connection);
