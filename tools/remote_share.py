@@ -42,7 +42,13 @@ def publish_url(public_url: str) -> bool:
             endpoint,
             data=body,
             method="POST",
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151.0 Safari/537.36",
+                "Origin": "https://keyval.org",
+                "Referer": "https://keyval.org/",
+            },
         )
         with urllib.request.urlopen(request, timeout=15) as response:
             result = response.read().decode("utf-8", errors="replace").strip()
