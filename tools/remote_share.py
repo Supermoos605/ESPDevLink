@@ -10,12 +10,17 @@ import time
 import urllib.parse
 import urllib.request
 
+try:
+    from include.espdevlink_secrets import KEYVAL_KEY as LOCAL_KEYVAL_KEY
+except ImportError:
+    LOCAL_KEYVAL_KEY = ""
+
 HOST_URL = os.environ.get("ESPDEVLINK_LOCAL_URL", "http://127.0.0.1:8765")
 CLOUDFLARED = os.environ.get("CLOUDFLARED_PATH", "cloudflared")
 URL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 TUNNEL_START_TIMEOUT = 30
 KEYVAL_BASE_URL = "https://api.keyval.org"
-KEYVAL_KEY = os.environ.get("ESPDEVLINK_KEYVAL_KEY", "").strip()
+KEYVAL_KEY = os.environ.get("ESPDEVLINK_KEYVAL_KEY", LOCAL_KEYVAL_KEY).strip()
 
 
 def publish_url(public_url: str) -> bool:
