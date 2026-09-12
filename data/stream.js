@@ -1,4 +1,11 @@
 const video = document.getElementById('stream');
+const audio = document.createElement('audio');
+audio.autoplay = true;
+audio.controls = false;
+audio.muted = true;
+audio.volume = 1;
+audio.playsInline = true;
+document.body.appendChild(audio);
 const placeholder = document.getElementById('placeholder');
 const gameName = document.getElementById('gameName');
 const hint = document.getElementById('gameHint');
@@ -7,7 +14,7 @@ const state = document.getElementById('state');
 const stage = document.getElementById('stage');
 video.autoplay = true; video.muted = true; video.playsInline = true;
 const FORCE_REMOTE = true; // TEMPORARY TEST SWITCH: set true to force the Quick Tunnel path. Remove after testing.
-let hostBase='',hostSession=localStorage.getItem('espLinkHostSession')||'',hostSessionCode='',peerId=null,peer=null,inputChannel=null,signalTimer=null,stopped=false,inputBound=false,connecting=false,connectionToken=0;
+let videoStream=null,audioStream=null;\nlet hostBase='',hostSession=localStorage.getItem('espLinkHostSession')||'',hostSessionCode='',peerId=null,peer=null,inputChannel=null,signalTimer=null,stopped=false,inputBound=false,connecting=false,connectionToken=0;
 let recoveryTimer=null,connectionTimeout=null,iceRecoveryTimer=null,lastVideoProgress=0,recoveryInProgress=false;
 const pressedKeys=new Set(),pressedButtons=new Set();
 const labels={ready:'READY',connecting:'CONNECTING',streaming:'LIVE',error:'ERROR',offline:'OFFLINE'};
@@ -30,7 +37,29 @@ function markVideoProgress(){lastVideoProgress=Date.now();if(recoveryInProgress)
 function beginRecovery(reason){if(stopped||recoveryInProgress)return;recoveryInProgress=true;diag('recovery requested',reason);hint.textContent=`${reason} Recovering stream…`;window.ESPLinkDashboard?.setError?.(reason);fail(reason);}
 function startRecoveryWatchdog(){clearRecoveryTimers();lastVideoProgress=Date.now();recoveryTimer=setInterval(()=>{if(stopped||!peer)return;const connected=peer.connectionState==='connected'||peer.iceConnectionState==='connected'||peer.iceConnectionState==='completed';if(connected&&video.srcObject&&Date.now()-lastVideoProgress>8000)beginRecovery('Video stream stalled.');},2000);connectionTimeout=setTimeout(()=>{if(!stopped&&peer&&peer.connectionState!=='connected')beginRecovery('Connection timed out.');},15000);}
 async function createPeer(token){const selected=localStorage.getItem('espLinkSelectedGame')||'Desktop';const mode=selected==='Test Stream'?'test':'desktop';const session=await request(hostBase,'/api/webrtc/session',{method:'POST',body:JSON.stringify({video_mode:mode,session_id:hostSession})});diag('host audio',session.audio?.enabled?'enabled':(session.audio?.error||'unavailable'));diag('host input',session.input?.enabled?'enabled':'disabled');if(token!==connectionToken)throw new Error('Connection attempt superseded.');peerId=session.peer_id;diag('session created',peerId);const iceServers=Array.isArray(session.ice_servers)?session.ice_servers:[];diag('ICE servers configured',String(iceServers.length));peer=new RTCPeerConnection({iceServers});window.ESPLinkPeer=peer;peer.onsignalingstatechange=()=>diag('signalingState',peer.signalingState);peer.onconnectionstatechange=()=>{diag('connectionState',peer.connectionState);if(peer.connectionState==='connected'){reportSelectedIcePair();clearTimeout(connectionTimeout);if(window.ESPLinkReconnect)window.ESPLinkReconnect.reset();paint({state:'streaming',game:selected});}if(peer.connectionState==='disconnected'&&!stopped&&!iceRecoveryTimer){diag('ICE recovery','grace period started');iceRecoveryTimer=setTimeout(()=>beginRecovery('ICE connection lost.'),5000);}if(peer.connectionState==='failed'||peer.connectionState==='closed')beginRecovery('The WebRTC connection failed.');};peer.oniceconnectionstatechange=()=>{diag('iceConnectionState',peer.iceConnectionState);if(peer.iceConnectionState==='disconnected'&&!stopped&&!iceRecoveryTimer)iceRecoveryTimer=setTimeout(()=>beginRecovery('ICE connection lost.'),5000);if(peer.iceConnectionState==='connected'||peer.iceConnectionState==='completed'){clearTimeout(iceRecoveryTimer);iceRecoveryTimer=null;}};peer.onicegatheringstatechange=()=>diag('iceGatheringState',peer.iceGatheringState);peer.onicecandidateerror=e=>diag('iceCandidateError',`${e.errorCode||''} ${e.errorText||''}`);
-async function reportSelectedIcePair(){try{const stats=await peer.getStats();let pair;stats.forEach(r=>{if(r.type==='candidate-pair'&&r.state==='succeeded'&&(r.nominated||!pair))pair=r;});if(!pair){diag('selected ICE pair','not reported by browser');return;}const local=stats.get(pair.localCandidateId);const remote=stats.get(pair.remoteCandidateId);const lt=local?.candidateType||'unknown';const rt=remote?.candidateType||'unknown';diag('selected ICE path',lt+' → '+rt+' · '+(pair.protocol||'unknown'));if(lt==='relay'||rt==='relay')diag('ICE transport','RELAY');else if(lt==='srflx'||rt==='srflx')diag('ICE transport','DIRECT via STUN/NAT');else diag('ICE transport','DIRECT host');}catch(error){diag('ICE stats error',error?.message||String(error));}}peer.onicecandidate=e=>{if(e.candidate){const raw=e.candidate.candidate||'candidate';const type=(raw.match(/ typ ([a-z]+)/i)||[])[1]||'unknown';diag('local ICE candidate',type+' — '+raw);sendSignal({type:'ice-candidate',candidate:e.candidate.toJSON()});}else diag('local ICE gathering complete');};inputChannel=peer.createDataChannel('input',{ordered:false,maxRetransmits:0});inputChannel.onopen=()=>{diag('input channel','open');hint.textContent='Keyboard, mouse, and touch input enabled.';window.ESPLinkDashboard?.update?.();};inputChannel.onclose=()=>{diag('input channel','closed');releaseInput();window.ESPLinkDashboard?.update?.();};inputChannel.onerror=e=>diag('input channel error',e.message||'channel error');bindInput();peer.ontrack=async e=>{const kind=e.track?.kind||'unknown';diag('track received',kind);if(!e.streams[0])return;video.srcObject=e.streams[0];markVideoProgress();placeholder.style.display='none';if(kind==='audio')diag('audio track','received from host');try{await video.play();diag('media playback','started');paint({state:'streaming',game:selected});}catch(error){diag('media playback blocked',error.message);console.error(error);hint.textContent='Press Audio to enable sound.';}};video.ontimeupdate=markVideoProgress;video.onclick=()=>video.play().catch(error=>diag('video click playback error',error.message));startRecoveryWatchdog();
+async function reportSelectedIcePair(){try{const stats=await peer.getStats();let pair;stats.forEach(r=>{if(r.type==='candidate-pair'&&r.state==='succeeded'&&(r.nominated||!pair))pair=r;});if(!pair){diag('selected ICE pair','not reported by browser');return;}const local=stats.get(pair.localCandidateId);const remote=stats.get(pair.remoteCandidateId);const lt=local?.candidateType||'unknown';const rt=remote?.candidateType||'unknown';diag('selected ICE path',lt+' → '+rt+' · '+(pair.protocol||'unknown'));if(lt==='relay'||rt==='relay')diag('ICE transport','RELAY');else if(lt==='srflx'||rt==='srflx')diag('ICE transport','DIRECT via STUN/NAT');else diag('ICE transport','DIRECT host');}catch(error){diag('ICE stats error',error?.message||String(error));}}peer.onicecandidate=e=>{if(e.candidate){const raw=e.candidate.candidate||'candidate';const type=(raw.match(/ typ ([a-z]+)/i)||[])[1]||'unknown';diag('local ICE candidate',type+' — '+raw);sendSignal({type:'ice-candidate',candidate:e.candidate.toJSON()});}else diag('local ICE gathering complete');};inputChannel=peer.createDataChannel('input',{ordered:false,maxRetransmits:0});inputChannel.onopen=()=>{diag('input channel','open');hint.textContent='Keyboard, mouse, and touch input enabled.';window.ESPLinkDashboard?.update?.();};inputChannel.onclose=()=>{diag('input channel','closed');releaseInput();window.ESPLinkDashboard?.update?.();};inputChannel.onerror=e=>diag('input channel error',e.message||'channel error');bindInput();peer.ontrack=async e=>{
+const kind=e.track?.kind||'unknown';
+diag('track received',kind);
+if(kind==='video'){
+    if(!videoStream)videoStream=new MediaStream();
+    videoStream.addTrack(e.track);
+    video.srcObject=videoStream;
+    markVideoProgress();
+    placeholder.style.display='none';
+    try{await video.play();diag('video playback','started');paint({state:'streaming',game:selected});}
+    catch(error){diag('video playback blocked',error.message);console.error(error);}
+    return;
+}
+if(kind==='audio'){
+    if(!audioStream)audioStream=new MediaStream();
+    audioStream.addTrack(e.track);
+    audio.srcObject=audioStream;
+    diag('audio track','received from host');
+    try{await audio.play();diag('audio playback','started');}
+    catch(error){diag('audio playback blocked',error.message);console.error(error);hint.textContent='Press Audio to enable sound.';}
+    return;
+}
+};video.ontimeupdate=markVideoProgress;video.onclick=()=>video.play().catch(error=>diag('video click playback error',error.message));startRecoveryWatchdog();
 // Explicit recvonly transceivers keep the browser SDP media directions defined.
 // This is important for Safari/iPadOS receive-only sessions.
 // Keep the offer strictly receive-only: Safari can otherwise create a
@@ -43,7 +72,7 @@ const offer=await peer.createOffer();await peer.setLocalDescription(offer);diag(
 async function sendSignal(message){const id=peerId;const p=peer;if(stopped||!id||!p)return;if(!p||p!==peer)return;diag('signal sent',message.type);await request(hostBase,'/api/webrtc/message',{method:'POST',headers:{'X-ESPLink-Peer':id},body:JSON.stringify(message)});}
 function fail(message){diag('failure',message);window.ESPLinkDashboard?.setError?.(message);stopped=true;connecting=false;clearRecoveryTimers();releaseInput();clearInterval(signalTimer);signalTimer=null;if(peer)peer.close();peer=null;window.ESPLinkPeer=null;inputChannel=null;peerId=null;paint({state:'error',game:localStorage.getItem('espLinkSelectedGame')||'Desktop'});hint.textContent=message;console.error(message);if(window.ESPLinkReconnect&&window.ESPLinkReconnect.schedule(()=>start(false),status=>{diag('reconnect',status.message);hint.textContent=status.message;})){stopped=false;}}
 async function receiveSignals(){if(stopped||!peerId||!peer)return;const id=peerId;const p=peer;try{const result=await request(hostBase,'/api/webrtc/messages',{headers:{'X-ESPLink-Peer':id}});if(stopped||peerId!==id||peer!==p)return;for(const message of result.messages||[]){if(stopped||peerId!==id||peer!==p)return;diag('signal received',message.type);if(message.type==='answer'&&p.signalingState!=='stable'){await p.setRemoteDescription({type:'answer',sdp:message.sdp});diag('remote description','applied');for(const t of p.getTransceivers())diag('negotiated transceiver',t.kind+' local='+t.direction+' current='+(t.currentDirection||'none'));const audioReceiver=p.getReceivers().find(r=>r.track?.kind==='audio');diag('audio receiver',audioReceiver?'present':'missing');if(audioReceiver)diag('audio receiver track',audioReceiver.track.id||'unknown');}else if(message.type==='ice-candidate'&&message.candidate)await p.addIceCandidate(message.candidate);else if(message.type==='error'){fail(message.message||'The host could not create the requested stream.');return;}}}catch(error){if(!stopped&&peerId===id&&peer===p){diag('signaling error',error.message);console.warn('Signaling:',error.message);}}}
-async function start(interactive=true){if(connecting)return;connecting=true;const token=++connectionToken;try{stopped=false;recoveryInProgress=false;clearRecoveryTimers();clearInterval(signalTimer);signalTimer=null;if(peer){try{peer.close();}catch(_){}}peer=null;window.ESPLinkPeer=null;inputChannel=null;peerId=null;if(video.srcObject){video.srcObject.getTracks().forEach(t=>t.stop());video.srcObject=null;}paint({state:'connecting',game:localStorage.getItem('espLinkSelectedGame')||'Test Stream'});await connectHost();if(token!==connectionToken||stopped)return;await createPeer(token);}catch(error){if(token===connectionToken&&!stopped)fail(error.message);}finally{if(token===connectionToken)connecting=false;}}
+async function start(interactive=true){if(connecting)return;connecting=true;const token=++connectionToken;try{stopped=false;recoveryInProgress=false;clearRecoveryTimers();clearInterval(signalTimer);signalTimer=null;if(peer){try{peer.close();}catch(_){}}peer=null;window.ESPLinkPeer=null;inputChannel=null;peerId=null;if(video.srcObject){video.srcObject.getTracks().forEach(t=>t.stop());video.srcObject=null;}\nif(audio.srcObject){audio.srcObject.getTracks().forEach(t=>t.stop());audio.srcObject=null;}\nvideoStream=null;audioStream=null;paint({state:'connecting',game:localStorage.getItem('espLinkSelectedGame')||'Test Stream'});await connectHost();if(token!==connectionToken||stopped)return;await createPeer(token);}catch(error){if(token===connectionToken&&!stopped)fail(error.message);}finally{if(token===connectionToken)connecting=false;}}
 async function stop(){connectionToken++;stopped=true;if(window.ESPLinkReconnect)window.ESPLinkReconnect.cancel();clearRecoveryTimers();releaseInput();clearInterval(signalTimer);signalTimer=null;if(peer)peer.close();peer=null;window.ESPLinkPeer=null;inputChannel=null;peerId=null;if(video.srcObject){video.srcObject.getTracks().forEach(t=>t.stop());video.srcObject=null;}connecting=false;paint({state:'ready',game:''});diag('stopped');}
 const sendEscape=()=>{sendInput('key','down',{code:'Escape',key:'Escape',repeat:false});setTimeout(()=>sendInput('key','up',{code:'Escape',key:'Escape'}),35);diag('Esc','sent');};document.getElementById('escape').onclick=sendEscape;document.getElementById('escape').onpointerdown=e=>{e.preventDefault();sendEscape()};
 document.getElementById('dashboardToggle').onclick=()=>{const panel=document.getElementById('dashboard');const hidden=panel.style.display==='none';panel.style.display=hidden?'grid':'none';document.getElementById('dashboardToggle').textContent=hidden?'⌃':'⌄';};
@@ -51,7 +80,14 @@ document.getElementById('settings').onclick=()=>{location.href='/settings.html'}
 document.getElementById('games').onclick=async()=>{await stop();location.href='/games.html'};
 document.getElementById('retry').onclick=async()=>{await stop();start();};
 document.getElementById('disconnect').onclick=()=>{localStorage.removeItem('espLinkHostSession');hostSession='';stop();};
-document.getElementById('mute').onclick=async()=>{video.muted=false;video.volume=1;try{await video.play();diag('audio playback','enabled by user gesture');}catch(error){diag('audio playback error',error.message);hint.textContent='Audio could not start: '+error.message;}document.getElementById('mute').textContent='🔊 Audio';window.ESPLinkDashboard?.update?.();};
+document.getElementById('mute').onclick=async()=>{
+audio.muted=false;
+audio.volume=1;
+try{await audio.play();diag('audio playback','enabled by user gesture');}
+catch(error){diag('audio playback error',error.message);hint.textContent='Audio could not start: '+error.message;}
+document.getElementById('mute').textContent='🔊 Audio';
+window.ESPLinkDashboard?.update?.();
+};
 document.getElementById('fullscreen').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen?.();else stage.requestFullscreen?.();};
 document.getElementById('diagnostics').onclick=()=>{diagnosticPanel.style.display=diagnosticPanel.style.display==='none'?'block':'none';};
 start();
