@@ -21,8 +21,9 @@ KEYVAL_KEY = os.environ.get("ESPDEVLINK_KEYVAL_KEY", "").strip()
 
 def publish_url(public_url: str) -> bool:
     if len(KEYVAL_KEY) < 10:
-        print("[ESPDevLink] KeyVal publishing disabled (ESPDEVLINK_KEYVAL_KEY is missing or too short).")
-        return True
+        print("[ERROR] ESPDEVLINK_KEYVAL_KEY must be at least 10 characters.")
+        print("[ESPDevLink] Quick Tunnel cannot be published without a rendezvous key.")
+        return False
 
     endpoint = (
         f"{KEYVAL_BASE_URL}/set/"
