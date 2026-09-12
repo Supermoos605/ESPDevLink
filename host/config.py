@@ -34,6 +34,14 @@ if not AUTHORIZATION_CODE:
     )
 
 
+# Free public STUN servers used for ICE candidate discovery by default.
+# STUN does not relay media; it only helps peers discover their public-facing
+# NAT addresses. Set ESPLINK_ICE_SERVERS explicitly to replace these defaults.
+DEFAULT_ICE_SERVERS = [
+    {"urls": ["stun:stun.l.google.com:19302"]},
+    {"urls": ["stun:stun.cloudflare.com:3478"]},
+]
+
 def _load_ice_servers() -> list[dict]:
     """Load optional STUN/TURN servers from ESPLINK_ICE_SERVERS.
 
@@ -42,7 +50,7 @@ def _load_ice_servers() -> list[dict]:
     """
     raw = os.environ.get("ESPLINK_ICE_SERVERS", "").strip()
     if not raw:
-        return []
+        return [dict(server) for server in DEFAULT_ICE_SERVERS]
     try:
         value = json.loads(raw)
     except json.JSONDecodeError as exc:
