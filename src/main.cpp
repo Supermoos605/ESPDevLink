@@ -73,12 +73,26 @@ bool lookupRemoteURL() {
     String payload = http.getString();
     http.end();
     payload.trim();
-    if (!payload.startsWith("https://") || payload.indexOf(".trycloudflare.com") < 0) {
+
+    // KeyVal's POST /get API returns JSON, e.g.
+    // {"status":"SUCCESS","key":"...","val":"https://....trycloudflare.com"}
+    JsonDocument responseDoc;
+    DeserializationError parseError = deserializeJson(responseDoc, payload);
+    if (parseError) {
         remoteOnline = false;
         remoteURL = "";
         return false;
     }
-    remoteURL = payload;
+
+    const char* value = responseDoc["val"] | "";
+    if (strlen(value) == 0 || strncmp(value, "https://", 8) != 0 ||
+        strstr(value, ".trycloudflare.com") == nullptr) {
+        remoteOnline = false;
+        remoteURL = "";
+        return false;
+    }
+
+    remoteURL = value;
     remoteOnline = true;
     return true;
 }
