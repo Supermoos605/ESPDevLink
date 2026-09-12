@@ -22,7 +22,10 @@ ALLOW_CONNECTIONS = os.environ.get("ESPLINK_ALLOW_CONNECTIONS", "1").lower() not
 try:
     from .local_config import AUTHORIZATION_CODE as LOCAL_AUTHORIZATION_CODE
 except ImportError:
-    LOCAL_AUTHORIZATION_CODE = ""
+    try:
+        from local_config import AUTHORIZATION_CODE as LOCAL_AUTHORIZATION_CODE
+    except ImportError:
+        LOCAL_AUTHORIZATION_CODE = ""
 
 AUTHORIZATION_CODE = os.environ.get("ESPLINK_AUTH_CODE", LOCAL_AUTHORIZATION_CODE).strip()
 
