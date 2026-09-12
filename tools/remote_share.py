@@ -10,10 +10,7 @@ import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
-import sys
 
-# remote_share.py is normally launched from tools/, so add the repository root
-# before importing the shared private Python configuration.
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
@@ -36,13 +33,13 @@ def publish_url(public_url: str) -> bool:
         print("[ERROR] ESPDEVLINK_KEYVAL_KEY must be at least 10 characters.")
         return False
 
-    endpoint = (
-        f"{KEYVAL_BASE_URL}/set/"
-        f"{urllib.parse.quote(KEYVAL_KEY, safe='')}/"
-        f"{urllib.parse.quote(public_url, safe='')}"
-    )
+    encoded_key = urllib.parse.quote(KEYVAL_KEY, safe="")
+    encoded_url = urllib.parse.quote(public_url, safe="")
+    endpoint = f"{KEYVAL_BASE_URL}/set/{encoded_key}/{encoded_url}"
+
     try:
-        with urllib.request.urlopen(endpoint, timeout=15) as response:
+        request = urllib.request.Request(endpoint, method="POST")
+        with urllib.request.urlopen(request, timeout=15) as response:
             result = response.read().decode("utf-8", errors="replace").strip()
         print(f"[ESPDevLink] Published Quick Tunnel URL: {result}")
         return True
