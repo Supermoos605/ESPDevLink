@@ -8,15 +8,17 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 
-// Replace these placeholders only in your local working copy before building.
-const char* WIFI_SSID = "YOUR_WIFI_NAME";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-const char* ACCESS_CODE = "YOUR_ACCESS_CODE";
+#include "../include/espdevlink_secrets.h"
 
-// Cross-network rendezvous settings. Remote lookup is enabled when the KeyVal key is configured.
+// Non-secret defaults stay in source; private credentials live in the ignored
+// include/espdevlink_secrets.h file and are never committed to GitHub.
+const char* WIFI_SSID = ESPDEVLINK_WIFI_SSID;
+const char* WIFI_PASSWORD = ESPDEVLINK_WIFI_PASSWORD;
+const char* ACCESS_CODE = ESPDEVLINK_ACCESS_CODE;
+
+// Cross-network rendezvous settings.
 const char* KEYVAL_BASE_URL = "https://api.keyval.org";
-// TODO: move this to persistent configuration before release.
-const char* KEYVAL_KEY = "CHANGE_ME_TO_A_LONG_RANDOM_KEY";
+const char* KEYVAL_KEY = ESPDEVLINK_KEYVAL_KEY;
 const char* RENDEZVOUS_DEVICE_ID = "gaming-pc";
 
 const char* MDNS_NAME = "steamlink";
