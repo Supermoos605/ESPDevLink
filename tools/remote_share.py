@@ -9,6 +9,7 @@ import sys
 import time
 import json
 import urllib.request
+import urllib.error
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -47,6 +48,14 @@ def publish_url(public_url: str) -> bool:
             result = response.read().decode("utf-8", errors="replace").strip()
         print(f"[ESPDevLink] Published Quick Tunnel URL: {result}")
         return True
+    except urllib.error.HTTPError as exc:
+        try:
+            response_body = exc.read().decode("utf-8", errors="replace").strip()
+        except Exception:
+            response_body = "(unable to read response body)"
+        print(f"[ERROR] KeyVal publish failed: HTTP {exc.code} {exc.reason}")
+        print(f"[ERROR] KeyVal response: {response_body or '(empty response body)'}")
+        return False
     except Exception as exc:
         print(f"[ERROR] KeyVal publish failed: {exc}")
         return False
