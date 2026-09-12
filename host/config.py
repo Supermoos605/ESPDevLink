@@ -20,18 +20,26 @@ HEARTBEAT_SECONDS = max(1, float(os.environ.get("ESPLINK_HEARTBEAT", DEFAULT_HEA
 CAPTURE_FPS = max(1, int(os.environ.get("ESPLINK_CAPTURE_FPS", DEFAULT_CAPTURE_FPS)))
 ALLOW_CONNECTIONS = os.environ.get("ESPLINK_ALLOW_CONNECTIONS", "1").lower() not in {"0", "false", "no", "off"}
 try:
-    from .local_config import AUTHORIZATION_CODE as LOCAL_AUTHORIZATION_CODE
+    from include.espdevlink_secrets import (
+        WIFI_SSID as LOCAL_WIFI_SSID,
+        WIFI_PASSWORD as LOCAL_WIFI_PASSWORD,
+        ACCESS_CODE as LOCAL_ACCESS_CODE,
+        KEYVAL_KEY as LOCAL_KEYVAL_KEY,
+    )
 except ImportError:
-    try:
-        from local_config import AUTHORIZATION_CODE as LOCAL_AUTHORIZATION_CODE
-    except ImportError:
-        LOCAL_AUTHORIZATION_CODE = ""
+    LOCAL_WIFI_SSID = ""
+    LOCAL_WIFI_PASSWORD = ""
+    LOCAL_ACCESS_CODE = ""
+    LOCAL_KEYVAL_KEY = ""
 
-AUTHORIZATION_CODE = os.environ.get("ESPLINK_AUTH_CODE", LOCAL_AUTHORIZATION_CODE).strip()
+WIFI_SSID = os.environ.get("ESPDEVLINK_WIFI_SSID", LOCAL_WIFI_SSID).strip()
+WIFI_PASSWORD = os.environ.get("ESPDEVLINK_WIFI_PASSWORD", LOCAL_WIFI_PASSWORD)
+AUTHORIZATION_CODE = os.environ.get("ESPLINK_AUTH_CODE", LOCAL_ACCESS_CODE).strip()
+KEYVAL_KEY = os.environ.get("ESPDEVLINK_KEYVAL_KEY", LOCAL_KEYVAL_KEY).strip()
 
 if not AUTHORIZATION_CODE:
     raise RuntimeError(
-        "ESPLINK_AUTH_CODE is not set. Set it to the same value as the ESP32 ACCESS_CODE."
+        "Set ACCESS_CODE in include/espdevlink_secrets.py or ESPLINK_AUTH_CODE."
     )
 
 
