@@ -6,7 +6,7 @@ const meta = document.getElementById('hostMeta');
 const state = document.getElementById('state');
 const stage = document.getElementById('stage');
 video.autoplay = true; video.muted = true; video.playsInline = true;
-const FORCE_REMOTE = false; // TEMPORARY TEST SWITCH: set true to force the Quick Tunnel path. Remove after testing.
+const FORCE_REMOTE = true; // TEMPORARY TEST SWITCH: set true to force the Quick Tunnel path. Remove after testing.
 let hostBase='',hostSession=localStorage.getItem('espLinkHostSession')||'',hostSessionCode='',peerId=null,peer=null,inputChannel=null,signalTimer=null,stopped=false,inputBound=false,connecting=false,connectionToken=0;
 let recoveryTimer=null,connectionTimeout=null,iceRecoveryTimer=null,lastVideoProgress=0,recoveryInProgress=false;
 const pressedKeys=new Set(),pressedButtons=new Set();
