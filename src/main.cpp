@@ -56,13 +56,15 @@ bool lookupRemoteURL() {
     WiFiClientSecure client;
     client.setInsecure();
     HTTPClient http;
-    String endpoint = String(KEYVAL_BASE_URL) + "/get/" + KEYVAL_KEY;
+    String endpoint = String(KEYVAL_BASE_URL) + "/get";
     if (!http.begin(client, endpoint)) {
         remoteOnline = false;
         return false;
     }
     http.setTimeout(5000);
-    int code = http.GET();
+    http.addHeader("Content-Type", "application/json");
+    String requestBody = String("{\"key\":\"") + KEYVAL_KEY + "\"}";
+    int code = http.POST(requestBody);
     if (code != HTTP_CODE_OK) {
         http.end();
         remoteOnline = false;
