@@ -1,0 +1,11 @@
+name = "espdevlink-rendezvous"
+main = "cloudflare-worker.js"
+compatibility_date = "2026-09-11"
+
+[vars]
+RECORD_TTL = "120"
+
+# Create a KV namespace in Cloudflare and replace this ID.
+[[kv_namespaces]]
+binding = "ESPDEVLINK_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
