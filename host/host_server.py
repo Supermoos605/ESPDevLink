@@ -77,7 +77,6 @@ class ESP32Heartbeat:
             "ip": network["host"],
             "game": status["game"],
             "stream": status["stream"],
-            "signaling_url": "",
         }).encode("utf-8")
         request = Request(
             f"{ESP32_URL}/api/pc/heartbeat",
