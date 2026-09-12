@@ -108,6 +108,24 @@ Gamepad transport is part of the protocol but does not yet inject a virtual cont
 
 The WebRTC host can capture the Windows default speaker mix through WASAPI loopback using the optional SoundCard dependency. Audio capture is non-fatal: if loopback is unavailable, video streaming can continue and the browser diagnostics panel reports the audio failure.
 
+## Cross-network Quick Tunnel discovery
+
+ESPLink can use a Cloudflare Quick Tunnel for the Windows host without requiring a Cloudflare account. The helper in `tools/remote_share.py` starts `cloudflared tunnel --url <local-url>`, detects the temporary `trycloudflare.com` address, and publishes that address to KeyVal.
+
+Set `ESPDEVLINK_KEYVAL_KEY` on the Windows host and put the same long random key in `KEYVAL_KEY` in `src/main.cpp`. Do not commit a real key to source control.
+
+KeyVal is only used as a tiny rendezvous/address-book service. It does not carry WebRTC video, audio, or input traffic.
+
+```text
+Windows host -> Quick Tunnel -> trycloudflare.com
+      |
+      +------ publish URL -> KeyVal
+                              ^
+                              |
+ESP32 -> KeyVal lookup -------+
+        -> current tunnel URL
+```
+
 ## Cross-network WebRTC
 
 ESPLink supports browser ICE configuration through the authenticated `/api/webrtc/config` endpoint. Local host/LAN candidates are used by default. For internet connections, configure a public STUN server and, when direct connectivity is not possible, an authenticated TURN relay.
