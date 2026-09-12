@@ -282,7 +282,6 @@ void setup() {
         });
 
     server.on("/api/remote", HTTP_GET, [](AsyncWebServerRequest* request) {
-        if (!authorized(request)) { sendError(request, 401, "Unauthorized"); return; }
         if (millis() - remoteCheckedAt >= REMOTE_LOOKUP_INTERVAL_MS) {
             lookupRemoteURL();
             remoteCheckedAt = millis();
