@@ -19,7 +19,12 @@ COMPUTER_NAME = os.environ.get("ESPLINK_COMPUTER_NAME", DEFAULT_COMPUTER_NAME).s
 HEARTBEAT_SECONDS = max(1, float(os.environ.get("ESPLINK_HEARTBEAT", DEFAULT_HEARTBEAT_SECONDS)))
 CAPTURE_FPS = max(1, int(os.environ.get("ESPLINK_CAPTURE_FPS", DEFAULT_CAPTURE_FPS)))
 ALLOW_CONNECTIONS = os.environ.get("ESPLINK_ALLOW_CONNECTIONS", "1").lower() not in {"0", "false", "no", "off"}
-AUTHORIZATION_CODE = os.environ.get("ESPLINK_AUTH_CODE", "").strip()
+try:
+    from .local_config import AUTHORIZATION_CODE as LOCAL_AUTHORIZATION_CODE
+except ImportError:
+    LOCAL_AUTHORIZATION_CODE = ""
+
+AUTHORIZATION_CODE = os.environ.get("ESPLINK_AUTH_CODE", LOCAL_AUTHORIZATION_CODE).strip()
 
 if not AUTHORIZATION_CODE:
     raise RuntimeError(
