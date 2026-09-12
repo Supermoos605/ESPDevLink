@@ -9,6 +9,14 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+from pathlib import Path
+import sys
+
+# remote_share.py is normally launched from tools/, so add the repository root
+# before importing the shared private Python configuration.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 try:
     from include.espdevlink_secrets import KEYVAL_KEY as LOCAL_KEYVAL_KEY
