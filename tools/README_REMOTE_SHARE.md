@@ -23,7 +23,7 @@ Then run:
 
 Do not put the app password in the repository, a source file, or a command that will be committed.
 
-The script creates a temporary `trycloudflare.com` URL and sends it by email. The URL stops working when the script stops.
+The script creates a temporary `trycloudflare.com` URL and publishes it to the configured KeyVal rendezvous entry. The URL stops working when the script stops.
 
 ## Security
 
