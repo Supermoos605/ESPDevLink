@@ -7,12 +7,45 @@ import signal
 import subprocess
 import sys
 import time
+import json
+import urllib.request
 
 
 HOST_URL = os.environ.get("ESPDEVLINK_LOCAL_URL", "http://127.0.0.1:8765")
 CLOUDFLARED = os.environ.get("CLOUDFLARED_PATH", "cloudflared")
 URL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 TUNNEL_START_TIMEOUT = 30
+RENDEZVOUS_URL = os.environ.get("ESPDEVLINK_RENDEZVOUS_URL", "").strip().rstrip("/")
+DEVICE_ID = os.environ.get("ESPDEVLINK_DEVICE_ID", "").strip()
+RENDEZVOUS_TOKEN = os.environ.get("ESPDEVLINK_RENDEZVOUS_TOKEN", "").strip()
+
+
+def register_url(public_url: str) -> bool:
+    if not RENDEZVOUS_URL or not DEVICE_ID or not RENDEZVOUS_TOKEN:
+        print("[ESPDevLink] Rendezvous registration disabled (missing configuration).")
+        return True
+    payload = json.dumps({"device_id": DEVICE_ID, "url": public_url}).encode("utf-8")
+    request = urllib.request.Request(
+        f"{RENDEZVOUS_URL}/api/register",
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {RENDEZVOUS_TOKEN}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        if not result.get("ok"):
+            print(f"[ERROR] Rendezvous rejected registration: {result}")
+            return False
+        print(f"[ESPDevLink] Registered {DEVICE_ID} with rendezvous service.")
+        return True
+    except Exception as exc:
+        print(f"[ERROR] Rendezvous registration failed: {exc}")
+        return False
+
 
 
 def main() -> int:
@@ -54,6 +87,8 @@ def main() -> int:
             return 1
 
         print(f"[ESPDevLink] Public URL: {public_url}")
+        if not register_url(public_url):
+            return 1
         print("[ESPDevLink] Tunnel is running. Press Ctrl+C to stop.")
 
         while tunnel.poll() is None:
