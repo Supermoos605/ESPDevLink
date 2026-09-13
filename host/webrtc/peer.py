@@ -269,6 +269,33 @@ class WebRTCPeer:
                     "bytes_sent": getattr(stat, "bytesSent", 0),
                     "frames_encoded": getattr(stat, "framesEncoded", 0),
                 }
+
+        capture = result["audio_capture"]
+        audio_rtp = result["audio"]
+        if not capture["enabled"]:
+            capture_state = "UNAVAILABLE"
+        elif capture["error"]:
+            capture_state = "ERROR"
+        elif capture["capture_frames"] <= 0:
+            capture_state = "STARTING"
+        elif capture["non_silent_frames"] <= 0:
+            capture_state = "SILENT"
+        else:
+            capture_state = "RECEIVING"
+
+        if audio_rtp.get("packets_sent", 0) > 0:
+            encoder_state = "SENDING"
+        elif capture_state in {"RECEIVING", "SILENT"}:
+            encoder_state = "WAITING"
+        else:
+            encoder_state = "UNAVAILABLE"
+
+        result["audio_pipeline"] = {
+            "capture": capture_state,
+            "samples": "RECEIVING" if capture["capture_frames"] > 0 else "WAITING",
+            "non_silent": "RECEIVING" if capture["non_silent_frames"] > 0 else "NONE",
+            "webrtc": encoder_state,
+        }
         return result
 
     def stats(self) -> dict:
