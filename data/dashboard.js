@@ -14,8 +14,10 @@
     const maxAttempts = Number(window.ESPLinkReconnect?.maxAttempts || 5);
     const route = window.ESPLinkConnectionMode;
     const requestedMode = window.ESPLinkRequestedConnectionMode || route;
+    const transition = window.ESPLinkConnectionTransition;
     let connection = route && route !== 'DETECTING' ? route : rawState;
-    if (requestedMode === 'FORCE_REMOTE') connection = 'FORCED REMOTE';
+    if (transition === 'FALLBACK') connection = 'SWITCHING';
+    else if (requestedMode === 'FORCE_REMOTE') connection = 'FORCED REMOTE';
     else if (route === 'REMOTE') connection = 'REMOTE';
     else if (route === 'LOCAL') connection = 'LOCAL';
     else if (route === 'AUTOMATIC') connection = 'AUTOMATIC';
