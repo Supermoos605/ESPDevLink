@@ -47,6 +47,10 @@ const pipeline=result?.stats?.audio_pipeline;
 if(pipeline)diag('audio pipeline',`capture=${pipeline.capture} samples=${pipeline.samples} non-silent=${pipeline.non_silent} webrtc=${pipeline.webrtc}`);
 const track=audioStream?.getAudioTracks?.()[0];
 diag('browser audio',`track=${track?.readyState||'missing'} muted=${audio.muted} paused=${audio.paused} readyState=${audio.readyState} volume=${audio.volume}`);
+const browserStats=await peer.getStats();
+let inboundAudio=null;
+browserStats.forEach(r=>{if(r.type==='inbound-rtp'&&r.kind==='audio')inboundAudio=r;});
+if(inboundAudio)diag('browser audio RTP',`packets=${inboundAudio.packetsReceived??0} bytes=${inboundAudio.bytesReceived??0} packetsLost=${inboundAudio.packetsLost??0} jitter=${inboundAudio.jitter??0}`);
 }catch(error){diag('audio stats error',error.message);}
 }
 function clearRecoveryTimers(){clearInterval(recoveryTimer);recoveryTimer=null;clearTimeout(connectionTimeout);connectionTimeout=null;clearTimeout(iceRecoveryTimer);iceRecoveryTimer=null;clearInterval(audioStatsTimer);audioStatsTimer=null;}
