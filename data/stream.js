@@ -36,6 +36,7 @@ async function request(base,path,options={}){const headers={'Content-Type':'appl
 async function loginHost(interactive=true){const saved=localStorage.getItem('espLinkHostSession');if(saved){hostSession=saved;try{await request(hostBase,'/api/connect',{method:'POST',body:JSON.stringify({game:localStorage.getItem('espLinkSelectedGame')||'Test Stream',session_id:hostSession})});diag('saved host session','reused');return;}catch(error){localStorage.removeItem('espLinkHostSession');hostSession='';diag('saved host session','expired');}}if(!interactive)throw new Error('Host authorization session expired. Press Retry to authorize again.');const code=window.prompt('Enter the Windows host authorization code:');if(!code)throw new Error('Host authorization code is required.');const login=await request(hostBase,'/api/auth/login',{method:'POST',body:JSON.stringify({code,client_id:`browser-${Date.now()}`})});hostSession=login.session_id;if(!hostSession)throw new Error('The Windows host did not return a session.');localStorage.setItem('espLinkHostSession',hostSession);}
 async function connectHost(interactive=true){
   const mode=CONNECTION_MODE;
+  window.ESPLinkRequestedConnectionMode=mode;
   window.ESPLinkConnectionMode=mode;
   diag('connection mode',mode);
   window.ESPLinkDashboard?.update?.();
