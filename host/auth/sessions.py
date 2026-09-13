@@ -22,6 +22,7 @@ class ClientSession:
     session_id: str
     client_id: str
     connected_at: float
+    last_seen: float = 0.0
     state: str = "connected"
 
 
@@ -38,7 +39,8 @@ class SessionManager:
     def connect(self, session_id: str, client_id: str) -> ClientSession:
         if not session_id or not client_id:
             raise ValueError("session_id and client_id are required")
-        session = ClientSession(session_id, client_id, time())
+        now = time()
+        session = ClientSession(session_id, client_id, now, now)
         self.sessions[session_id] = session
         return session
 
@@ -47,6 +49,19 @@ class SessionManager:
             return self.sessions[session_id]
         except KeyError as exc:
             raise KeyError("Unknown session") from exc
+
+    def touch(self, session_id: str) -> ClientSession:
+        session = self.get(session_id)
+        session.last_seen = time()
+        return session
+
+    def cleanup_expired(self, max_age: float = 1800.0) -> int:
+        now = time()
+        expired = [sid for sid, session in self.sessions.items()
+                   if now - session.last_seen > max_age]
+        for sid in expired:
+            self.disconnect(sid)
+        return len(expired)
 
     def set_state(self, session_id: str, state: str) -> None:
         if not state:
@@ -60,7 +75,7 @@ class SessionManager:
 
     def snapshot(self) -> list[dict]:
         return [{"session_id": s.session_id, "client_id": s.client_id,
-                 "connected_at": s.connected_at, "state": s.state}
+                 "connected_at": s.connected_at, "last_seen": s.last_seen, "state": s.state}
                 for s in self.sessions.values()]
 
     def status(self) -> dict:
