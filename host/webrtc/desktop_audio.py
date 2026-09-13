@@ -35,6 +35,14 @@ class DesktopAudioTrack(MediaStreamTrack if MediaStreamTrack is not None else ob
         self._started = threading.Event()
         self._error: Exception | None = None
         self._pts = 0
+        self._stats_lock = threading.Lock()
+        self._capture_frames = 0
+        self._capture_samples = 0
+        self._non_silent_frames = 0
+        self._peak = 0.0
+        self._rms = 0.0
+        self._queue_drops = 0
+        self._device_name = ""
         self._thread = threading.Thread(target=self._capture, name="ESPLink-Audio", daemon=True)
         self._thread.start()
         if not self._started.wait(timeout=3):
@@ -48,6 +56,8 @@ class DesktopAudioTrack(MediaStreamTrack if MediaStreamTrack is not None else ob
     def _capture(self) -> None:
         try:
             speaker = sc.default_speaker()
+            self._device_name = speaker.name
+            print(f"[Audio] Windows output capture device: {speaker.name}")
             loopback = sc.get_microphone(speaker.name, include_loopback=True)
             self._started.set()
             with loopback.recorder(samplerate=self.sample_rate, channels=[0, 1], blocksize=self.block_frames) as recorder:
@@ -62,6 +72,15 @@ class DesktopAudioTrack(MediaStreamTrack if MediaStreamTrack is not None else ob
                         array = np.repeat(array, 2, axis=1)
                     elif array.shape[1] > 2:
                         array = array[:, :2]
+                    peak = float(np.max(np.abs(array))) if array.size else 0.0
+                    rms = float(np.sqrt(np.mean(np.square(array)))) if array.size else 0.0
+                    with self._stats_lock:
+                        self._capture_frames += 1
+                        self._capture_samples += int(array.shape[0])
+                        if peak > 0.001:
+                            self._non_silent_frames += 1
+                        self._peak = peak
+                        self._rms = rms
                     # PyAV expects planar audio arrays as (channels, samples).
                     frame = AudioFrame.from_ndarray(array.T, format="fltp", layout="stereo")
                     frame.sample_rate = self.sample_rate
@@ -75,17 +94,35 @@ class DesktopAudioTrack(MediaStreamTrack if MediaStreamTrack is not None else ob
                             self._queue.get_nowait()
                         except queue.Empty:
                             pass
+                        with self._stats_lock:
+                            self._queue_drops += 1
                         try:
                             self._queue.put_nowait(frame)
                         except queue.Full:
                             pass
         except Exception as exc:
             self._error = exc
+            print(f"[Audio] Capture failed: {exc!r}")
             self._started.set()
             try:
                 self._queue.put_nowait(None)
             except queue.Full:
                 pass
+
+    def stats(self) -> dict:
+        with self._stats_lock:
+            return {
+                "enabled": True,
+                "device": self._device_name,
+                "capture_frames": self._capture_frames,
+                "capture_samples": self._capture_samples,
+                "non_silent_frames": self._non_silent_frames,
+                "peak": round(self._peak, 6),
+                "rms": round(self._rms, 6),
+                "queue_size": self._queue.qsize(),
+                "queue_drops": self._queue_drops,
+                "error": str(self._error) if self._error else None,
+            }
 
     async def recv(self):
         if self._error is not None and self._queue.empty():
