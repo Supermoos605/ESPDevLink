@@ -21,6 +21,7 @@ video.autoplay = true; video.muted = true; video.playsInline = true;
 const CONNECTION_MODE = 'AUTOMATIC';
 const FORCE_REMOTE = CONNECTION_MODE === 'FORCE_REMOTE';
 let videoStream=null,audioStream=null;
+let lastFailedConnectionRoute='';
 let hostBase='',hostSession=localStorage.getItem('espLinkHostSession')||'',hostSessionCode='',peerId=null,peer=null,inputChannel=null,signalTimer=null,stopped=false,inputBound=false,connecting=false,connectionToken=0;
 let recoveryTimer=null,connectionTimeout=null,iceRecoveryTimer=null,audioStatsTimer=null,lastVideoProgress=0,recoveryInProgress=false;
 const pressedKeys=new Set(),pressedButtons=new Set();
@@ -55,7 +56,11 @@ async function connectHost(interactive=true){
     if(!remoteAvailable) throw new Error('Remote host tunnel is unavailable.');
     selectedMode='REMOTE';
   }else{
-    if(localAvailable) selectedMode='LOCAL';
+    // Automatic mode prefers LAN, but after a failed route it tries the
+    // alternate route before repeating the same failed path.
+    if(localAvailable && lastFailedConnectionRoute!=='LOCAL') selectedMode='LOCAL';
+    else if(remoteAvailable && lastFailedConnectionRoute!=='REMOTE') selectedMode='REMOTE';
+    else if(localAvailable) selectedMode='LOCAL';
     else if(remoteAvailable) selectedMode='REMOTE';
     else throw new Error('Neither a local host nor a remote host tunnel is available.');
   }
@@ -73,6 +78,7 @@ async function connectHost(interactive=true){
   window.ESPLinkDashboard?.update?.();
 
   await loginHost(interactive);
+  diag('connection route ready',window.ESPLinkConnectionMode);
   const selected=localStorage.getItem('espLinkSelectedGame')||'Test Stream';
   return request(hostBase,'/api/connect',{method:'POST',body:JSON.stringify({game:selected,session_id:hostSession})});
 }
@@ -138,7 +144,13 @@ if(videoTransceiver)videoTransceiver.direction='recvonly';else peer.addTransceiv
 if(session.audio?.enabled&&!peer.getTransceivers().some(t=>t.kind==='audio'))peer.addTransceiver('audio',{direction:'recvonly'});
 const offer=await peer.createOffer();await peer.setLocalDescription(offer);diag('offer sent');await sendSignal({type:'offer',sdp:offer.sdp});signalTimer=setInterval(receiveSignals,500);}
 async function sendSignal(message){const id=peerId;const p=peer;if(stopped||!id||!p)return;if(!p||p!==peer)return;diag('signal sent',message.type);await request(hostBase,'/api/webrtc/message',{method:'POST',headers:{'X-ESPLink-Peer':id},body:JSON.stringify(message)});}
-function fail(message){diag('failure',message);window.ESPLinkDashboard?.setError?.(message);stopped=true;connecting=false;clearRecoveryTimers();releaseInput();clearInterval(signalTimer);signalTimer=null;if(peer)peer.close();peer=null;window.ESPLinkPeer=null;inputChannel=null;peerId=null;paint({state:'error',game:localStorage.getItem('espLinkSelectedGame')||'Desktop'});hint.textContent=message;console.error(message);if(window.ESPLinkReconnect&&window.ESPLinkReconnect.schedule(()=>start(false),status=>{diag('reconnect',status.message);hint.textContent=status.message;})){stopped=false;}}
+function fail(message){
+const failedRoute=window.ESPLinkConnectionMode;
+if(CONNECTION_MODE==='AUTOMATIC'&&(failedRoute==='LOCAL'||failedRoute==='REMOTE')){
+  lastFailedConnectionRoute=failedRoute;
+  diag('automatic fallback',failedRoute==='LOCAL'?'LOCAL failed; next retry will try REMOTE':'REMOTE failed; next retry will try LOCAL');
+}
+diag('failure',message);window.ESPLinkDashboard?.setError?.(message);stopped=true;connecting=false;clearRecoveryTimers();releaseInput();clearInterval(signalTimer);signalTimer=null;if(peer)peer.close();peer=null;window.ESPLinkPeer=null;inputChannel=null;peerId=null;paint({state:'error',game:localStorage.getItem('espLinkSelectedGame')||'Desktop'});hint.textContent=message;console.error(message);if(window.ESPLinkReconnect&&window.ESPLinkReconnect.schedule(()=>start(false),status=>{diag('reconnect',status.message);hint.textContent=status.message;})){stopped=false;}}
 async function receiveSignals(){if(stopped||!peerId||!peer)return;const id=peerId;const p=peer;try{const result=await request(hostBase,'/api/webrtc/messages',{headers:{'X-ESPLink-Peer':id}});if(stopped||peerId!==id||peer!==p)return;for(const message of result.messages||[]){if(stopped||peerId!==id||peer!==p)return;diag('signal received',message.type);if(message.type==='answer'&&p.signalingState!=='stable'){await p.setRemoteDescription({type:'answer',sdp:message.sdp});diag('remote description','applied');for(const t of p.getTransceivers())diag('negotiated transceiver',t.kind+' local='+t.direction+' current='+(t.currentDirection||'none'));const audioReceiver=p.getReceivers().find(r=>r.track?.kind==='audio');diag('audio receiver',audioReceiver?'present':'missing');if(audioReceiver)diag('audio receiver track',audioReceiver.track.id||'unknown');}else if(message.type==='ice-candidate'&&message.candidate)await p.addIceCandidate(message.candidate);else if(message.type==='error'){fail(message.message||'The host could not create the requested stream.');return;}}}catch(error){if(!stopped&&peerId===id&&peer===p){diag('signaling error',error.message);console.warn('Signaling:',error.message);}}}
 async function start(interactive=true){if(connecting)return;connecting=true;const token=++connectionToken;try{stopped=false;recoveryInProgress=false;clearRecoveryTimers();clearInterval(signalTimer);signalTimer=null;if(peer){try{peer.close();}catch(_){}}peer=null;window.ESPLinkPeer=null;inputChannel=null;peerId=null;if(video.srcObject){video.srcObject.getTracks().forEach(t=>t.stop());video.srcObject=null;}
 if(audio.srcObject){audio.srcObject.getTracks().forEach(t=>t.stop());audio.srcObject=null;}
