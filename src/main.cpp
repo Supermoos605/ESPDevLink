@@ -312,6 +312,19 @@ void setup() {
         sendJson(request, doc);
     });
 
+    // Force an immediate rendezvous refresh after a remote connection failure.
+    server.on("/api/remote/refresh", HTTP_POST, [](AsyncWebServerRequest* request) {
+        if (!authorized(request)) { sendError(request, 401, "Unauthorized"); return; }
+        bool found = lookupRemoteURL();
+        remoteCheckedAt = millis();
+        JsonDocument doc;
+        doc["ok"] = true;
+        doc["online"] = found;
+        doc["url"] = remoteURL;
+        doc["device_id"] = RENDEZVOUS_DEVICE_ID;
+        sendJson(request, doc);
+    });
+
     server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* request) {
         JsonDocument doc;
         doc["status"] = "online";
