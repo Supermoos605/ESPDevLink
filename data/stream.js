@@ -43,6 +43,8 @@ if(a){
 diag('host audio capture',`device=${a.device||'(unknown)'} frames=${a.capture_frames??0} non-silent=${a.non_silent_frames??0} peak=${a.peak??0} rms=${a.rms??0} drops=${a.queue_drops??0}`);
 }
 if(out)diag('host audio WebRTC',`packets=${out.packets_sent??0} bytes=${out.bytes_sent??0}`);
+const pipeline=result?.stats?.audio_pipeline;
+if(pipeline)diag('audio pipeline',`capture=${pipeline.capture} samples=${pipeline.samples} non-silent=${pipeline.non_silent} webrtc=${pipeline.webrtc}`);
 }catch(error){diag('audio stats error',error.message);}
 }
 function clearRecoveryTimers(){clearInterval(recoveryTimer);recoveryTimer=null;clearTimeout(connectionTimeout);connectionTimeout=null;clearTimeout(iceRecoveryTimer);iceRecoveryTimer=null;clearInterval(audioStatsTimer);audioStatsTimer=null;}
