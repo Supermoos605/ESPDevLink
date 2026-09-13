@@ -13,7 +13,12 @@
     const attempts = typeof window.ESPLinkReconnect?.attempts === 'function' ? window.ESPLinkReconnect.attempts() : 0;
     const maxAttempts = Number(window.ESPLinkReconnect?.maxAttempts || 5);
     const route = window.ESPLinkConnectionMode;
+    const requestedMode = window.ESPLinkRequestedConnectionMode || route;
     let connection = route && route !== 'DETECTING' ? route : rawState;
+    if (requestedMode === 'FORCE_REMOTE') connection = 'FORCED REMOTE';
+    else if (route === 'REMOTE') connection = 'REMOTE';
+    else if (route === 'LOCAL') connection = 'LOCAL';
+    else if (route === 'AUTOMATIC') connection = 'AUTOMATIC';
     if (rawState === 'ERROR' && attempts > 0 && attempts < maxAttempts) connection = 'RECONNECTING';
     if (rawState === 'ERROR' && attempts >= maxAttempts) connection = 'OFFLINE';
     set('dashConnection', connection);
