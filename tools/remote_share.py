@@ -112,7 +112,11 @@ def main() -> int:
                 while tunnel.poll() is None:
                     time.sleep(1)
 
-                print(f"[ESPDevLink] cloudflared exited with code {tunnel.returncode}. Restarting...")
+                print(f"[ESPDevLink] cloudflared exited with code {tunnel.returncode}.")
+                # Remove the dead URL immediately so the ESP32 cannot keep
+                # advertising a stale Quick Tunnel while recovery is underway.
+                publish_url("")
+                print("[ESPDevLink] Cleared stale remote URL. Creating a replacement tunnel...")
                 tunnel = None
                 time.sleep(2)
             except RuntimeError as exc:
