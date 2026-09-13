@@ -257,7 +257,7 @@ class WebRTCPeer:
             "ice_server_count": len(ICE_SERVERS),
             "input_events": queued_input,
             "input_backend": self.input_backend.status,
-            "audio_capture": {"enabled": self.audio_enabled and self.audio_track is not None, "error": self.audio_error},
+            "audio_capture": self.audio_track.stats() if self.audio_track is not None else {"enabled": False, "device": "", "capture_frames": 0, "capture_samples": 0, "non_silent_frames": 0, "peak": 0.0, "rms": 0.0, "queue_size": 0, "queue_drops": 0, "error": self.audio_error},
             "video": {},
             "audio": {},
         }
