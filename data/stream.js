@@ -16,7 +16,7 @@ video.autoplay = true; video.muted = true; video.playsInline = true;
 const FORCE_REMOTE = true; // TEMPORARY TEST SWITCH: set true to force the Quick Tunnel path. Remove after testing.
 let videoStream=null,audioStream=null;
 let hostBase='',hostSession=localStorage.getItem('espLinkHostSession')||'',hostSessionCode='',peerId=null,peer=null,inputChannel=null,signalTimer=null,stopped=false,inputBound=false,connecting=false,connectionToken=0;
-let recoveryTimer=null,connectionTimeout=null,iceRecoveryTimer=null,lastVideoProgress=0,recoveryInProgress=false;
+let recoveryTimer=null,connectionTimeout=null,iceRecoveryTimer=null,audioStatsTimer=null,lastVideoProgress=0,recoveryInProgress=false;
 const pressedKeys=new Set(),pressedButtons=new Set();
 const labels={ready:'READY',connecting:'CONNECTING',streaming:'LIVE',error:'ERROR',offline:'OFFLINE'};
 const diagnostics=[];
@@ -33,7 +33,19 @@ function sendInput(type,action,data={}){if(inputChannel&&inputChannel.readyState
 function pointerData(event){const rect=video.getBoundingClientRect();const sourceWidth=video.videoWidth||16;const sourceHeight=video.videoHeight||9;const scale=Math.min(rect.width/sourceWidth,rect.height/sourceHeight);const renderedWidth=sourceWidth*scale;const renderedHeight=sourceHeight*scale;const offsetX=(rect.width-renderedWidth)/2;const offsetY=(rect.height-renderedHeight)/2;const x=(event.clientX-rect.left-offsetX)/renderedWidth;const y=(event.clientY-rect.top-offsetY)/renderedHeight;return{x:Math.max(0,Math.min(1,x)),y:Math.max(0,Math.min(1,y)),inside:x>=0&&x<=1&&y>=0&&y<=1,button:event.button===2?'right':event.button===1?'middle':'left',pointer_type:event.pointerType||'mouse'};}
 function bindInput(){if(inputBound)return;inputBound=true;video.style.touchAction='none';video.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('keydown',e=>{if(stopped||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if(!pressedKeys.has(e.code)){pressedKeys.add(e.code);sendInput('key','down',{code:e.code,key:e.key,repeat:e.repeat});}e.preventDefault();});document.addEventListener('keyup',e=>{if(stopped)return;pressedKeys.delete(e.code);sendInput('key','up',{code:e.code,key:e.key});e.preventDefault();});video.addEventListener('pointermove',e=>{if(!stopped){const d=pointerData(e);if(d.inside)sendInput('mouse','move',d);}});video.addEventListener('pointerdown',e=>{if(stopped)return;const d=pointerData(e);if(!d.inside)return;video.setPointerCapture?.(e.pointerId);pressedButtons.add(d.button);sendInput('mouse','down',d);e.preventDefault();});video.addEventListener('pointerup',e=>{if(stopped)return;const d=pointerData(e);pressedButtons.delete(d.button);sendInput('mouse','up',d);video.releasePointerCapture?.(e.pointerId);e.preventDefault();});video.addEventListener('pointercancel',e=>{if(stopped)return;const d=pointerData(e);pressedButtons.delete(d.button);sendInput('mouse','up',d);e.preventDefault();});video.addEventListener('pointerleave',e=>{if(stopped)return;const d=pointerData(e);if(d.inside)return;sendInput('mouse','leave',d);});video.addEventListener('wheel',e=>{if(!stopped){sendInput('mouse','wheel',{deltaX:e.deltaX,deltaY:e.deltaY});e.preventDefault();}},{passive:false});window.addEventListener('blur',releaseInput);}
 function releaseInput(){for(const code of pressedKeys)sendInput('key','up',{code});for(const button of pressedButtons)sendInput('mouse','up',{button});pressedKeys.clear();pressedButtons.clear();}
-function clearRecoveryTimers(){clearInterval(recoveryTimer);recoveryTimer=null;clearTimeout(connectionTimeout);connectionTimeout=null;clearTimeout(iceRecoveryTimer);iceRecoveryTimer=null;}
+async function pollAudioStats(){
+if(stopped||!peerId||!peer)return;
+try{
+const result=await request(hostBase,'/api/webrtc/stats',{headers:{'X-ESPLink-Peer':peerId}});
+const a=result?.stats?.audio_capture;
+const out=result?.stats?.audio;
+if(a){
+diag('host audio capture',`device=${a.device||'(unknown)'} frames=${a.capture_frames??0} non-silent=${a.non_silent_frames??0} peak=${a.peak??0} rms=${a.rms??0} drops=${a.queue_drops??0}`);
+}
+if(out)diag('host audio WebRTC',`packets=${out.packets_sent??0} bytes=${out.bytes_sent??0}`);
+}catch(error){diag('audio stats error',error.message);}
+}
+function clearRecoveryTimers(){clearInterval(recoveryTimer);recoveryTimer=null;clearTimeout(connectionTimeout);connectionTimeout=null;clearTimeout(iceRecoveryTimer);iceRecoveryTimer=null;clearInterval(audioStatsTimer);audioStatsTimer=null;}
 function markVideoProgress(){lastVideoProgress=Date.now();if(recoveryInProgress){recoveryInProgress=false;diag('video recovery','restored');}}
 function beginRecovery(reason){if(stopped||recoveryInProgress)return;recoveryInProgress=true;diag('recovery requested',reason);hint.textContent=`${reason} Recovering stream…`;window.ESPLinkDashboard?.setError?.(reason);fail(reason);}
 function startRecoveryWatchdog(){clearRecoveryTimers();lastVideoProgress=Date.now();recoveryTimer=setInterval(()=>{if(stopped||!peer)return;const connected=peer.connectionState==='connected'||peer.iceConnectionState==='connected'||peer.iceConnectionState==='completed';if(connected&&video.srcObject&&Date.now()-lastVideoProgress>8000)beginRecovery('Video stream stalled.');},2000);connectionTimeout=setTimeout(()=>{if(!stopped&&peer&&peer.connectionState!=='connected')beginRecovery('Connection timed out.');},15000);}
@@ -60,7 +72,7 @@ if(kind==='audio'){
     catch(error){diag('audio playback blocked',error.message);console.error(error);hint.textContent='Press Audio to enable sound.';}
     return;
 }
-};video.ontimeupdate=markVideoProgress;video.onclick=()=>video.play().catch(error=>diag('video click playback error',error.message));startRecoveryWatchdog();
+};video.ontimeupdate=markVideoProgress;video.onclick=()=>video.play().catch(error=>diag('video click playback error',error.message));startRecoveryWatchdog();audioStatsTimer=setInterval(pollAudioStats,2000);
 // Explicit recvonly transceivers keep the browser SDP media directions defined.
 // This is important for Safari/iPadOS receive-only sessions.
 // Keep the offer strictly receive-only: Safari can otherwise create a
