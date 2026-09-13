@@ -39,6 +39,7 @@ async function connectHost(interactive=true){
   const mode=CONNECTION_MODE;
   window.ESPLinkRequestedConnectionMode=mode;
   window.ESPLinkConnectionMode=mode;
+  window.ESPLinkConnectionTransition='SELECTING';
   diag('connection mode',mode);
   window.ESPLinkDashboard?.update?.();
 
@@ -68,10 +69,12 @@ async function connectHost(interactive=true){
   if(selectedMode==='LOCAL'){
     hostBase=`http://${localPC.ip}:8765`;
     window.ESPLinkConnectionMode='LOCAL';
+    window.ESPLinkConnectionTransition='READY';
     diag('connection selected','LOCAL');
   }else{
     hostBase=String(remote.url).replace(/\/$/,'');
-    window.ESPLinkConnectionMode='REMOTE';
+    window.ESPLinkConnectionMode=mode==='FORCE_REMOTE'?'FORCED_REMOTE':'REMOTE';
+    window.ESPLinkConnectionTransition='READY';
     diag('connection selected',mode==='FORCE_REMOTE'?'FORCED REMOTE via Quick Tunnel':'REMOTE via Quick Tunnel');
   }
   window.ESPLinkHostBase=hostBase;
