@@ -45,6 +45,8 @@ diag('host audio capture',`device=${a.device||'(unknown)'} frames=${a.capture_fr
 if(out)diag('host audio WebRTC',`packets=${out.packets_sent??0} bytes=${out.bytes_sent??0}`);
 const pipeline=result?.stats?.audio_pipeline;
 if(pipeline)diag('audio pipeline',`capture=${pipeline.capture} samples=${pipeline.samples} non-silent=${pipeline.non_silent} webrtc=${pipeline.webrtc}`);
+const track=audioStream?.getAudioTracks?.()[0];
+diag('browser audio',`track=${track?.readyState||'missing'} muted=${audio.muted} paused=${audio.paused} readyState=${audio.readyState} volume=${audio.volume}`);
 }catch(error){diag('audio stats error',error.message);}
 }
 function clearRecoveryTimers(){clearInterval(recoveryTimer);recoveryTimer=null;clearTimeout(connectionTimeout);connectionTimeout=null;clearTimeout(iceRecoveryTimer);iceRecoveryTimer=null;clearInterval(audioStatsTimer);audioStatsTimer=null;}
