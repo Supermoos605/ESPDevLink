@@ -58,12 +58,15 @@ class DesktopAudioTrack(MediaStreamTrack if MediaStreamTrack is not None else ob
             speaker = sc.default_speaker()
             self._device_name = speaker.name
             print(f"[Audio] Windows output capture device: {speaker.name}")
+            print(f"[Audio] Default speaker object: {speaker!r}")
             loopback = sc.get_microphone(speaker.name, include_loopback=True)
+            print(f"[Audio] WASAPI loopback device: {loopback.name}")
             self._started.set()
             with loopback.recorder(samplerate=self.sample_rate, channels=[0, 1], blocksize=self.block_frames) as recorder:
                 while not self._stop_event.is_set():
                     data = recorder.record(numframes=self.block_frames)
                     if data is None or len(data) == 0:
+                        print("[Audio] Capture returned an empty block")
                         continue
                     array = np.asarray(data, dtype=np.float32)
                     if array.ndim == 1:
