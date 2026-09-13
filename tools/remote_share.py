@@ -67,9 +67,8 @@ def publish_url(public_url: str) -> bool:
         return False
 
 
-def main() -> int:
+def start_tunnel() -> tuple[subprocess.Popen, str]:
     print(f"[ESPDevLink] Starting Quick Tunnel for {HOST_URL}")
-
     try:
         tunnel = subprocess.Popen(
             [CLOUDFLARED, "tunnel", "--url", HOST_URL],
@@ -79,48 +78,53 @@ def main() -> int:
             bufsize=1,
         )
     except FileNotFoundError:
-        print("[ERROR] cloudflared was not found. Install cloudflared or set CLOUDFLARED_PATH.")
-        return 1
+        raise RuntimeError("cloudflared was not found. Install cloudflared or set CLOUDFLARED_PATH.")
 
-    public_url = None
     deadline = time.monotonic() + TUNNEL_START_TIMEOUT
+    while time.monotonic() < deadline:
+        line = tunnel.stdout.readline()
+        if not line:
+            if tunnel.poll() is not None:
+                raise RuntimeError(f"cloudflared exited with code {tunnel.returncode}.")
+            time.sleep(0.1)
+            continue
+        print("[cloudflared]", line.rstrip())
+        match = URL_PATTERN.search(line)
+        if match:
+            return tunnel, match.group(0)
 
+    if tunnel.poll() is None:
+        tunnel.terminate()
+    raise RuntimeError("Timed out waiting for a trycloudflare.com URL.")
+
+
+def main() -> int:
+    tunnel = None
     try:
-        while time.monotonic() < deadline:
-            line = tunnel.stdout.readline()
-            if not line:
-                if tunnel.poll() is not None:
-                    print(f"[ERROR] cloudflared exited with code {tunnel.returncode}.")
+        while True:
+            try:
+                tunnel, public_url = start_tunnel()
+                print(f"[ESPDevLink] Public URL: {public_url}")
+                if not publish_url(public_url):
                     return 1
-                time.sleep(0.1)
-                continue
 
-            print("[cloudflared]", line.rstrip())
-            match = URL_PATTERN.search(line)
-            if match:
-                public_url = match.group(0)
-                break
+                print("[ESPDevLink] Tunnel is running. If it disconnects, a new tunnel will be created automatically.")
+                while tunnel.poll() is None:
+                    time.sleep(1)
 
-        if not public_url:
-            print("[ERROR] Timed out waiting for a trycloudflare.com URL.")
-            return 1
-
-        print(f"[ESPDevLink] Public URL: {public_url}")
-        if not publish_url(public_url):
-            return 1
-
-        print("[ESPDevLink] Tunnel is running. Press Ctrl+C to stop.")
-        while tunnel.poll() is None:
-            time.sleep(1)
-
-        print(f"[ESPDevLink] cloudflared exited with code {tunnel.returncode}.")
-        return tunnel.returncode or 0
-
+                print(f"[ESPDevLink] cloudflared exited with code {tunnel.returncode}. Restarting...")
+                tunnel = None
+                time.sleep(2)
+            except RuntimeError as exc:
+                print(f"[ERROR] {exc}")
+                if tunnel is not None and tunnel.poll() is None:
+                    tunnel.terminate()
+                return 1
     except KeyboardInterrupt:
         print("\n[ESPDevLink] Stopping tunnel...")
         return 0
     finally:
-        if tunnel.poll() is None:
+        if tunnel is not None and tunnel.poll() is None:
             if sys.platform == "win32":
                 tunnel.send_signal(signal.CTRL_BREAK_EVENT)
             else:
