@@ -69,6 +69,7 @@ call :run_server
 exit /b
 
 :run_server
+set "ESPLINK_SUPERVISED=1"
 set "ESPLINK_INPUT_ENABLED=1"
 if not defined ESPLINK_AUTH_CODE set "ESPLINK_AUTH_CODE=DEVTEST"
 
@@ -78,6 +79,7 @@ echo [ESPDevLink] Starting host...
 python -m host.host_server
 set "EXIT_CODE=%ERRORLEVEL%"
 if "%EXIT_CODE%"=="0" exit /b 0
+if "%ESPLINK_SUPERVISED%"=="0" exit /b %EXIT_CODE%
 echo.
 echo [ESPDevLink] Host stopped unexpectedly (code %EXIT_CODE%).
 echo [ESPDevLink] Restarting in 5 seconds...
