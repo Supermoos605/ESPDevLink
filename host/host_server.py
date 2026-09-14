@@ -319,6 +319,18 @@ def main():
     server = ThreadingHTTPServer((HOST, PORT), HostHandler)
     heartbeat = ESP32Heartbeat()
     heartbeat.start()
+
+    def health_watchdog():
+        # Keep the HTTP process self-aware without restarting it while it is healthy.
+        while True:
+            time.sleep(30)
+            try:
+                if not server._BaseServer__is_shut_down.is_set():
+                    api.health()
+            except Exception as exc:
+                print(f"[HEALTH] Monitor warning: {exc}")
+
+    threading.Thread(target=health_watchdog, name="host-health-watchdog", daemon=True).start()
     print(f"ESPLink Windows Host: http://0.0.0.0:{PORT}")
     print("Browser UI: http://<PC-IP>:8765/")
     print("Press Ctrl+C to stop.")
