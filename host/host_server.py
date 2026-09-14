@@ -142,7 +142,9 @@ class HostHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": False, "error": "Authorization required"}, 401)
             return None
         try:
-            api.host.sessions.cleanup_expired()
+            expired_sessions = api.host.sessions.expire_sessions()
+            for expired_id in expired_sessions:
+                api.signaling.close_session(expired_id)
             api.host.sessions.touch(session_id)
         except KeyError:
             self.send_json({"ok": False, "error": "Invalid or expired session id"}, 401)
