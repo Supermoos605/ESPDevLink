@@ -56,12 +56,16 @@ class SessionManager:
         return session
 
     def cleanup_expired(self, max_age: float = 1800.0) -> int:
+        return len(self.expire_sessions(max_age))
+
+    def expire_sessions(self, max_age: float = 1800.0) -> list[str]:
+        """Close expired sessions and return their IDs for dependent cleanup."""
         now = time()
         expired = [sid for sid, session in self.sessions.items()
                    if now - session.last_seen > max_age]
         for sid in expired:
             self.disconnect(sid)
-        return len(expired)
+        return expired
 
     def set_state(self, session_id: str, state: str) -> None:
         if not state:
