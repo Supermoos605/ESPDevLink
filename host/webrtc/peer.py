@@ -14,7 +14,7 @@ except ImportError:
     RTCSessionDescription = None
     candidate_from_sdp = None
 
-from ..config import CAPTURE_FPS, ICE_SERVERS
+from ..config import CAPTURE_FPS, ICE_SERVERS, VIDEO_STATS_INTERVAL, VIDEO_MAX_BITRATE
 from .desktop_audio import DesktopAudioTrack
 from .desktop_video import DesktopVideoTrack
 from .input import normalize_input
@@ -121,10 +121,12 @@ class WebRTCPeer:
                 # intersect with the sender transceiver.
                 video_transceiver = connection.addTransceiver("video", direction="sendonly")
                 video_transceiver.sender.replaceTrack(self.video_track)
+                self._configure_video_sender(video_transceiver.sender)
             elif self.video_mode == "test":
                 self.video_track = TestVideoTrack()
                 video_transceiver = connection.addTransceiver("video", direction="sendonly")
                 video_transceiver.sender.replaceTrack(self.video_track)
+                self._configure_video_sender(video_transceiver.sender)
 
             if self.audio_enabled:
                 try:
@@ -150,6 +152,25 @@ class WebRTCPeer:
             coroutine.close()
             raise RuntimeError("WebRTC peer is closed")
         return asyncio.run_coroutine_threadsafe(coroutine, self._loop)
+
+    @staticmethod
+    def _configure_video_sender(sender) -> None:
+        """Apply optional sender limits without changing the default behavior."""
+        if VIDEO_MAX_BITRATE <= 0:
+            return
+        try:
+            parameters = sender.getParameters()
+            encodings = getattr(parameters, "encodings", None)
+            if not encodings:
+                return
+            for encoding in encodings:
+                encoding.maxBitrate = VIDEO_MAX_BITRATE
+            sender.setParameters(parameters)
+            print(f"[WebRTC] Video max bitrate: {VIDEO_MAX_BITRATE} bps")
+        except (AttributeError, TypeError, ValueError) as exc:
+            print(f"[WebRTC] Video bitrate limit unavailable: {exc}")
+        except Exception as exc:
+            print(f"[WebRTC] Video bitrate limit failed: {exc!r}")
 
     async def _accept_offer(self, sdp: str) -> dict:
         if not isinstance(sdp, str) or not sdp.strip():
