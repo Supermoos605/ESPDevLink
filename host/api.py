@@ -5,6 +5,7 @@ both the real HTTP server and the local simulator.
 """
 import json
 import os
+import time
 from uuid import uuid4
 
 from .config import AUTHORIZATION_CODE
@@ -23,12 +24,21 @@ class HostAPI:
         self.host = host or ESPLinkHost(AUTHORIZATION_CODE)
         self.games = games or self.host.games
         self.signaling = signaling or HostSignaling()
+        self.started_at = time.time()
 
     def status(self) -> dict:
         return self.host.status()
 
     def health(self) -> dict:
-        return {"ok": True, "service": "ESPLink Windows Host"}
+        status = self.host.status()
+        return {
+            "ok": True,
+            "service": "ESPLink Windows Host",
+            "uptime_seconds": max(0, int(time.time() - self.started_at)),
+            "host_online": status["host"]["online"],
+            "stream_state": status["host"]["stream"],
+            "game": status["host"]["game"],
+        }
 
     def authorize(self, code: str, client_id: str = "browser") -> dict:
         session_id = uuid4().hex
