@@ -26,7 +26,7 @@ goto menu
 :start
 set "ESPLINK_INPUT_ENABLED=1"
 if not defined ESPLINK_AUTH_CODE set "ESPLINK_AUTH_CODE=DEVTEST"
-python -m host.host_server
+call :run_server
 pause
 goto menu
 
@@ -65,7 +65,21 @@ pause
 goto menu
 
 :scheduled
+call :run_server
+exit /b
+
+:run_server
 set "ESPLINK_INPUT_ENABLED=1"
 if not defined ESPLINK_AUTH_CODE set "ESPLINK_AUTH_CODE=DEVTEST"
+
+:server_loop
+echo.
+echo [ESPDevLink] Starting host...
 python -m host.host_server
-exit /b
+set "EXIT_CODE=%ERRORLEVEL%"
+if "%EXIT_CODE%"=="0" exit /b 0
+echo.
+echo [ESPDevLink] Host stopped unexpectedly (code %EXIT_CODE%).
+echo [ESPDevLink] Restarting in 5 seconds...
+timeout /t 5 /nobreak >nul
+goto server_loop
