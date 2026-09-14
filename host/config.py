@@ -19,6 +19,8 @@ DEFAULT_ESP32_URL = "http://steamlink.local"
 DEFAULT_HEARTBEAT_SECONDS = 2
 DEFAULT_COMPUTER_NAME = socket.gethostname()
 DEFAULT_CAPTURE_FPS = 30
+DEFAULT_VIDEO_STATS_INTERVAL = 5
+DEFAULT_VIDEO_MAX_BITRATE = 0
 
 ESP32_URL = os.environ.get("ESPLINK_ESP32", DEFAULT_ESP32_URL).rstrip("/")
 _DEFAULT_CORS_ORIGIN = ESP32_URL
@@ -26,6 +28,8 @@ CORS_ORIGINS = [item.strip().rstrip("/") for item in os.environ.get("ESPLINK_COR
 COMPUTER_NAME = os.environ.get("ESPLINK_COMPUTER_NAME", DEFAULT_COMPUTER_NAME).strip() or DEFAULT_COMPUTER_NAME
 HEARTBEAT_SECONDS = max(1, float(os.environ.get("ESPLINK_HEARTBEAT", DEFAULT_HEARTBEAT_SECONDS)))
 CAPTURE_FPS = max(1, int(os.environ.get("ESPLINK_CAPTURE_FPS", DEFAULT_CAPTURE_FPS)))
+VIDEO_STATS_INTERVAL = max(1, float(os.environ.get("ESPLINK_VIDEO_STATS_INTERVAL", DEFAULT_VIDEO_STATS_INTERVAL)))
+VIDEO_MAX_BITRATE = max(0, int(os.environ.get("ESPLINK_VIDEO_MAX_BITRATE", DEFAULT_VIDEO_MAX_BITRATE)))
 ALLOW_CONNECTIONS = os.environ.get("ESPLINK_ALLOW_CONNECTIONS", "1").lower() not in {"0", "false", "no", "off"}
 try:
     from include.espdevlink_secrets import (
