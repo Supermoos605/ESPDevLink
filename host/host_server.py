@@ -9,6 +9,8 @@ from secrets import token_urlsafe
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+import os
+import subprocess
 
 from .api import HostAPI
 from .config import (
@@ -21,7 +23,8 @@ from .config import (
 
 HOST = "0.0.0.0"
 PORT = 8765
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = ROOT_DIR / "data"
 api = HostAPI()
 _auth_attempts = defaultdict(deque)
 _AUTH_WINDOW_SECONDS = 60
@@ -253,6 +256,24 @@ class HostHandler(BaseHTTPRequestHandler):
             body = self.read_json()
             session_id = self.require_session(body)
             if session_id is None:
+                return
+
+            if path == "/api/admin/update":
+                if os.name != "nt":
+                    self.send_json({"ok": False, "error": "Remote update is supported on the Windows host only."}, 501)
+                    return
+                updater = Path(__file__).resolve().parent / "update_and_restart.py"
+                if not updater.is_file():
+                    self.send_json({"ok": False, "error": "Update helper is missing."}, 500)
+                    return
+                subprocess.Popen(
+                    [os.environ.get("PYTHON", "python"), str(updater)],
+                    cwd=str(ROOT_DIR),
+                    creationflags=getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+                    close_fds=True,
+                )
+                self.send_json({"ok": True, "state": "UPDATING", "message": "ESPDevLink is updating and will restart."}, 202)
+                threading.Thread(target=lambda: (time.sleep(1.0), server.shutdown()), daemon=True).start()
                 return
 
             if path == "/api/games/launch":
