@@ -187,6 +187,23 @@ audioButton.onclick=async()=>{
   }
   syncAudioUI();
 };
-document.getElementById('fullscreen').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen?.();else stage.requestFullscreen?.();};
+const fullscreenButton=document.getElementById('fullscreen');
+const syncFullscreenUI=()=>{
+  const active=!!document.fullscreenElement;
+  fullscreenButton.textContent=active?'⛶ Exit fullscreen':'⛶ Fullscreen';
+  fullscreenButton.setAttribute('aria-label',active?'Exit fullscreen':'Enter fullscreen');
+};
+fullscreenButton.onclick=async()=>{
+  try{
+    if(document.fullscreenElement) await document.exitFullscreen();
+    else await stage.requestFullscreen();
+  }catch(error){
+    diag('fullscreen error',error.message);
+    hint.textContent='Fullscreen is not available in this browser.';
+  }
+  syncFullscreenUI();
+};
+document.addEventListener('fullscreenchange',syncFullscreenUI);
+syncFullscreenUI();
 document.getElementById('diagnostics').onclick=()=>{diagnosticPanel.style.display=diagnosticPanel.style.display==='none'?'block':'none';};
 start();
