@@ -2,7 +2,8 @@ const video = document.getElementById('stream');
 const audio = document.createElement('audio');
 audio.autoplay = true;
 audio.controls = false;
-audio.muted = true;
+audio.dataset.esplinkAudio = 'true';
+audio.muted = localStorage.getItem('espLinkAudioEnabled') !== '1';
 audio.volume = 1;
 audio.playsInline = true;
 document.body.appendChild(audio);
@@ -104,8 +105,10 @@ if(kind==='video'){
 if(kind==='audio'){
     if(!audioStream)audioStream=new MediaStream();
     audioStream.addTrack(e.track);
+    e.track.enabled = true;
     audio.srcObject=audioStream;
     diag('audio track','received from host');
+    diag('audio state',`muted=${audio.muted} enabled=${e.track.enabled} ready=${audio.readyState}`);
     try{await audio.play();diag('audio playback','started');}
     catch(error){diag('audio playback blocked',error.message);console.error(error);hint.textContent='Press Audio to enable sound.';}
     return;
@@ -165,13 +168,24 @@ document.getElementById('settings').onclick=()=>{location.href='/settings.html'}
 document.getElementById('games').onclick=async()=>{await stop();location.href='/games.html'};
 document.getElementById('retry').onclick=async()=>{await stop();start();};
 document.getElementById('disconnect').onclick=()=>{localStorage.removeItem('espLinkHostSession');hostSession='';stop();};
-document.getElementById('mute').onclick=async()=>{
-audio.muted=false;
-audio.volume=1;
-try{await audio.play();diag('audio playback','enabled by user gesture');}
-catch(error){diag('audio playback error',error.message);hint.textContent='Audio could not start: '+error.message;}
-document.getElementById('mute').textContent='🔊 Audio';
-window.ESPLinkDashboard?.update?.();
+const audioButton=document.getElementById('mute');
+const syncAudioUI=()=>{audioButton.textContent=audio.muted?'🔇 Audio':'🔊 Audio';window.ESPLinkDashboard?.update?.();};
+audio.addEventListener('volumechange',syncAudioUI);
+audio.addEventListener('play',syncAudioUI);
+audioButton.onclick=async()=>{
+  audio.muted=false;
+  audio.volume=1;
+  localStorage.setItem('espLinkAudioEnabled','1');
+  const track=audioStream?.getAudioTracks?.()[0];
+  if(track) track.enabled=true;
+  try{
+    await audio.play();
+    diag('audio playback','enabled by user gesture');
+  }catch(error){
+    diag('audio playback error',error.message);
+    hint.textContent='Audio could not start: '+error.message;
+  }
+  syncAudioUI();
 };
 document.getElementById('fullscreen').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen?.();else stage.requestFullscreen?.();};
 document.getElementById('diagnostics').onclick=()=>{diagnosticPanel.style.display=diagnosticPanel.style.display==='none'?'block':'none';};
