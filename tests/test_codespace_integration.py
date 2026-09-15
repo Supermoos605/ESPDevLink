@@ -27,7 +27,7 @@ class CodespaceIntegrationTest(unittest.TestCase):
         cls.proc = subprocess.Popen(
             [sys.executable, "-m", "simulator.esp_link_simulator", "--host", "127.0.0.1", "--port", str(cls.port)],
             cwd=ROOT,
-            stdout=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
             text=True,
         )
