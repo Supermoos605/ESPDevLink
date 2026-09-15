@@ -3,7 +3,7 @@ const audio = document.createElement('audio');
 audio.autoplay = true;
 audio.controls = false;
 audio.dataset.esplinkAudio = 'true';
-audio.muted = localStorage.getItem('espLinkAudioEnabled') !== '1';
+audio.muted = false;
 audio.volume = 1;
 audio.playsInline = true;
 document.body.appendChild(audio);
@@ -173,9 +173,9 @@ const syncAudioUI=()=>{audioButton.textContent=audio.muted?'🔇 Audio':'🔊 Au
 audio.addEventListener('volumechange',syncAudioUI);
 audio.addEventListener('play',syncAudioUI);
 audioButton.onclick=async()=>{
-  audio.muted=false;
+  audio.muted=!audio.muted;
   audio.volume=1;
-  localStorage.setItem('espLinkAudioEnabled','1');
+  localStorage.setItem('espLinkAudioEnabled',audio.muted?'0':'1');
   const track=audioStream?.getAudioTracks?.()[0];
   if(track) track.enabled=true;
   try{
