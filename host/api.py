@@ -110,11 +110,12 @@ class HostAPI:
                 servers.append(legacy)
         return {"ice_servers": servers}
 
-    def create_peer(self, session_id: str, video_mode: str | None = None) -> dict:
-        peer = self.signaling.create_peer(session_id, video_mode=video_mode)
+    def create_peer(self, session_id: str, video_mode: str | None = None, quality: str | None = None) -> dict:
+        peer = self.signaling.create_peer(session_id, video_mode=video_mode, quality=quality)
         result = {
             "peer_id": peer.peer_id,
             "state": peer.state,
+            "quality": quality or os.environ.get("ESPLINK_QUALITY", "auto"),
             "webrtc": peer.rtc is not None,
             **self.webrtc_config(),
         }
