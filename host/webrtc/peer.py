@@ -35,6 +35,7 @@ class WebRTCPeer:
         display_index: int = 0,
         input_enabled: bool = False,
         audio_enabled: bool = True,
+        quality: str = "auto",
     ) -> None:
         if RTCPeerConnection is None:
             raise RuntimeError(
@@ -50,6 +51,7 @@ class WebRTCPeer:
         self.video_mode = video_mode
         self.display_index = display_index
         self.audio_enabled = audio_enabled
+        self.quality = quality if quality in {"auto", "720p60", "1080p60", "1080p30"} else "auto"
         self.input_backend = WindowsInputBackend(enabled=input_enabled)
         self.video_track = None
         self.audio_track = None
@@ -113,7 +115,7 @@ class WebRTCPeer:
             if self.video_mode == "desktop":
                 self.video_track = DesktopVideoTrack(
                     display_index=self.display_index,
-                    target_fps=CAPTURE_FPS,
+                    target_fps=self._quality_settings()["fps"],
                 )
                 # Explicitly create a sendonly transceiver instead of relying on
                 # addTrack() to infer the initial direction. Safari/iPadOS can
@@ -153,10 +155,19 @@ class WebRTCPeer:
             raise RuntimeError("WebRTC peer is closed")
         return asyncio.run_coroutine_threadsafe(coroutine, self._loop)
 
-    @staticmethod
-    def _configure_video_sender(sender) -> None:
+    def _quality_settings(self) -> dict:
+        presets = {
+            "auto": {"fps": CAPTURE_FPS, "max_bitrate": VIDEO_MAX_BITRATE},
+            "720p60": {"fps": 60, "max_bitrate": 4_000_000},
+            "1080p60": {"fps": 60, "max_bitrate": 8_000_000},
+            "1080p30": {"fps": 30, "max_bitrate": 6_000_000},
+        }
+        return presets[self.quality]
+
+    def _configure_video_sender(self, sender) -> None:
         """Apply optional sender limits without changing the default behavior."""
-        if VIDEO_MAX_BITRATE <= 0:
+        bitrate = self._quality_settings()["max_bitrate"]
+        if bitrate <= 0:
             return
         try:
             parameters = sender.getParameters()
@@ -164,9 +175,9 @@ class WebRTCPeer:
             if not encodings:
                 return
             for encoding in encodings:
-                encoding.maxBitrate = VIDEO_MAX_BITRATE
+                encoding.maxBitrate = bitrate
             sender.setParameters(parameters)
-            print(f"[WebRTC] Video max bitrate: {VIDEO_MAX_BITRATE} bps")
+            print(f"[WebRTC] Video quality={self.quality} max bitrate: {bitrate} bps")
         except (AttributeError, TypeError, ValueError) as exc:
             print(f"[WebRTC] Video bitrate limit unavailable: {exc}")
         except Exception as exc:
