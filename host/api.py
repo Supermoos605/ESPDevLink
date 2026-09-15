@@ -31,6 +31,8 @@ class HostAPI:
 
     def health(self) -> dict:
         status = self.host.status()
+        stream = status.get("stream", {})
+        runtime = stream.get("runtime", {}) if isinstance(stream, dict) else {}
         return {
             "ok": True,
             "service": "ESPLink Windows Host",
@@ -38,6 +40,8 @@ class HostAPI:
             "host_online": status["host"]["online"],
             "stream_state": status["host"]["stream"],
             "game": status["host"]["game"],
+            "stream_quality": runtime.get("quality", {}),
+            "stream_health": runtime.get("health", {}),
         }
 
     def authorize(self, code: str, client_id: str = "browser") -> dict:
