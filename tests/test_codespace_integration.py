@@ -57,6 +57,7 @@ class CodespaceIntegrationTest(unittest.TestCase):
                 cls.proc.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 cls.proc.kill()
+                cls.proc.wait(timeout=2)
 
     def request(self, method, path, body=None, session=None, peer=None):
         headers = {"Content-Type": "application/json"}
