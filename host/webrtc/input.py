@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from time import time
 
 
-_ALLOWED_TYPES = {"key", "mouse", "gamepad"}
+_ALLOWED_TYPES = {"key", "mouse"}
 _MAX_TEXT = 64
 
 
