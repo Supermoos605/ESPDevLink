@@ -2,6 +2,8 @@
 setlocal
 cd /d "%~dp0"
 
+if /I "%~1"=="scheduled" goto scheduled
+
 :menu
 cls
 echo ================================
