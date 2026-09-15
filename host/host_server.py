@@ -286,7 +286,8 @@ class HostHandler(BaseHTTPRequestHandler):
                 self.send_json({"ok": True, "state": "READY"})
             elif path in {"/api/webrtc/peer", "/api/webrtc/session"}:
                 video_mode = body.get("video_mode")
-                self.send_json({"ok": True, **api.create_peer(session_id, video_mode=video_mode)})
+                quality = body.get("quality")
+                self.send_json({"ok": True, **api.create_peer(session_id, video_mode=video_mode, quality=quality)})
             elif path in {"/api/webrtc/signal", "/api/webrtc/message"}:
                 peer_id = str(body.get("peer_id", self.headers.get("X-ESPLink-Peer", "")))
                 message = body.get("message", body)
