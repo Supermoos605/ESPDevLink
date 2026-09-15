@@ -61,13 +61,16 @@ class HostSignaling:
         self.input_enabled = _env_bool("ESPLINK_INPUT_ENABLED") if input_enabled is None else bool(input_enabled)
         self._lock = RLock()
 
-    def create_peer(self, session_id: str, video_mode: str | None = None) -> HostPeer:
+    def create_peer(self, session_id: str, video_mode: str | None = None, quality: str | None = None) -> HostPeer:
         if not isinstance(session_id, str) or not session_id.strip():
             raise ValueError("session_id must be a non-empty string")
         session_id = session_id.strip()
         mode = video_mode or self.video_mode
+        quality = quality or os.environ.get("ESPLINK_QUALITY", "auto")
         if mode not in {"desktop", "test", "none"}:
             raise ValueError("video_mode must be desktop, test, or none")
+        if quality not in {"auto", "720p60", "1080p60", "1080p30"}:
+            raise ValueError("quality must be auto, 720p60, 1080p60, or 1080p30")
         with self._lock:
             self.close_session(session_id)
             # Never reuse a peer identifier, even after an old peer is removed.
@@ -78,7 +81,7 @@ class HostSignaling:
             rtc = None
             if self.enable_rtc:
                 try:
-                    rtc = WebRTCPeer(video_mode=mode, input_enabled=self.input_enabled, audio_enabled=_env_bool("ESPLINK_AUDIO_ENABLED", True))
+                    rtc = WebRTCPeer(video_mode=mode, input_enabled=self.input_enabled, audio_enabled=_env_bool("ESPLINK_AUDIO_ENABLED", True), quality=quality)
                 except RuntimeError as exc:
                     print(f"[WebRTC] Peer initialization failed: {exc}")
                     raise RuntimeError(f"WebRTC peer initialization failed: {exc}") from exc
