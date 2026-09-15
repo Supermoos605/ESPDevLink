@@ -6,6 +6,7 @@ status -> auth -> PC discovery -> connect -> stream -> WebRTC signaling ->
 disconnect -> logout.
 """
 import json
+import socket
 import subprocess
 import sys
 import time
@@ -20,16 +21,17 @@ ROOT = Path(__file__).resolve().parents[1]
 class CodespaceIntegrationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            cls.port = sock.getsockname()[1]
         cls.proc = subprocess.Popen(
-            [sys.executable, "-m", "simulator.esp_link_simulator", "--host", "127.0.0.1", "--port", "0"],
+            [sys.executable, "-m", "simulator.esp_link_simulator", "--host", "127.0.0.1", "--port", str(cls.port)],
             cwd=ROOT,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
         )
-        # The simulator currently requires a concrete port, so use its configured
-        # default if ephemeral binding is unsupported.
-        cls.base = "http://127.0.0.1:8080"
+        cls.base = f"http://127.0.0.1:{cls.port}"
         deadline = time.time() + 10
         while time.time() < deadline:
             try:
@@ -40,7 +42,8 @@ class CodespaceIntegrationTest(unittest.TestCase):
                 time.sleep(0.1)
         output = ""
         try:
-            output = cls.proc.stdout.read(4000)
+            cls.proc.kill()
+            output, _ = cls.proc.communicate(timeout=2)
         except Exception:
             pass
         cls.proc.kill()
