@@ -205,5 +205,23 @@ fullscreenButton.onclick=async()=>{
 };
 document.addEventListener('fullscreenchange',syncFullscreenUI);
 syncFullscreenUI();
+document.getElementById('update').onclick=async()=>{
+  if(!confirm('Update ESPDevLink from GitHub and restart the host? The current stream will disconnect.'))return;
+  const button=document.getElementById('update');
+  button.disabled=true;
+  button.textContent='Updating…';
+  hint.textContent='Updating ESPDevLink and restarting the host…';
+  diag('remote update','requested');
+  try{
+    const result=await request(hostBase,'/api/admin/update',{method:'POST',body:JSON.stringify({session_id:hostSession})});
+    diag('remote update',result.message||result.state||'started');
+    hint.textContent='Update started. Reconnecting when the host is back online…';
+  }catch(error){
+    diag('remote update error',error.message);
+    hint.textContent='Update could not be started: '+error.message;
+    button.disabled=false;
+    button.textContent='↻ Update & Restart';
+  }
+};
 document.getElementById('diagnostics').onclick=()=>{diagnosticPanel.style.display=diagnosticPanel.style.display==='none'?'block':'none';};
 start();
