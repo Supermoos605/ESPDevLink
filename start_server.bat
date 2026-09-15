@@ -32,15 +32,22 @@ goto menu
 
 :schedule
 set /p "time=Enter daily start time (HH:MM): "
-schtasks /Create /TN "ESPDevLink Host" /SC DAILY /ST "%time%" /TR ""%~f0" scheduled" /F
-if errorlevel 1 (
-  echo.
-  echo [ERROR] Could not create the scheduled task.
-  pause
-  goto menu
-)
+schtasks /Create /TN "ESPDevLink Host" /SC DAILY /ST "%time%" /TR ""%~f0" scheduled" /RL LIMITED /F
+if errorlevel 1 goto schedule_error
+powercfg /waketimers >nul 2>&1
+schtasks /Change /TN "ESPDevLink Host" /WAKE
+if errorlevel 1 goto schedule_error
 echo.
 echo [OK] ESPDevLink scheduled daily at %time%.
+echo [OK] The task is configured to wake the computer from Sleep.
+pause
+goto menu
+
+:schedule_error
+echo.
+echo [ERROR] Could not create or configure the scheduled task.
+echo [INFO] Run this BAT as Administrator if Windows requires elevated permissions.
+pause
 pause
 goto menu
 
