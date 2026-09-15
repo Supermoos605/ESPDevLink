@@ -28,7 +28,12 @@
       dot.className = 'dot ' + connection.toLowerCase();
       dot.setAttribute('aria-label', `Connection ${connection.toLowerCase()}`);
     }
-    set('dashHost', window.ESPLinkHostBase?.replace(/^https?:\/\//, '') || 'Not connected');
+    // In remote mode ESPLinkHostBase is the tunnel URL, not the computer's
+    // identity. Prefer the host name cached by the connection flow and only
+    // fall back to the URL when no identity has been discovered yet.
+    const savedHostName = localStorage.getItem('espLinkHostName') || localStorage.getItem('espLinkComputerName');
+    const hostDisplay = savedHostName || window.ESPLinkHostName || window.ESPLinkHostBase?.replace(/^https?:\/\//, '') || 'Not connected';
+    set('dashHost', hostDisplay);
     set('dashGame', document.getElementById('gameName')?.textContent || selectedGame || 'Desktop');
     const audio = document.querySelector('audio[data-esplink-audio]') || document.querySelector('audio');
     set('dashAudio', audio?.muted ? 'Muted' : 'Enabled');
