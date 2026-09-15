@@ -14,6 +14,209 @@ ESPLink/
 └── tests/                  # Cross-platform host/protocol tests
 ```
 
+
+## Quick start guide
+
+ESPLink has two main parts:
+
+- **ESP32 gateway:** serves the browser UI, provides local discovery through `steamlink.local`, and helps the browser find the Windows host.
+- **Windows host:** actually runs the game, captures the desktop/audio, handles WebRTC signaling, and receives keyboard/mouse input.
+
+The ESP32 is therefore a **gateway, not the gaming computer**. The game continues running on the Windows PC; the phone/tablet only needs a compatible browser.
+
+### 1. Install the Windows requirements
+
+On the Windows gaming PC, install Python and make sure the repository is available locally.
+
+For remote connections, install **cloudflared** and make sure the `cloudflared` command is available from PowerShell/Command Prompt.
+
+Verify it with:
+
+```text
+cloudflared version
+```
+
+### 2. Configure the host
+
+For normal development/testing:
+
+#### PowerShell
+
+```powershell
+$env:ESPLINK_INPUT_ENABLED="1"
+$env:ESPLINK_AUTH_CODE="DEVTEST"
+python -m host.host_server
+```
+
+The input flag enables the Windows keyboard/mouse injection backend. The authorization code must match the code configured on the ESP32/simulator.
+
+For personal use, **do not commit your real authorization code, KeyVal key, or TURN credentials to GitHub**.
+
+### 3. The easy way: `start_server.bat`
+
+The repository includes `start_server.bat` so you do not have to type the startup commands every time.
+
+Double-click it and choose:
+
+```text
+1. Start server now
+2. Schedule daily start
+3. Cancel scheduled start
+4. Show current schedule
+5. Exit
+```
+
+**Start server now** launches the Windows host.
+
+**Schedule daily start** creates a Windows Task Scheduler entry. For example, entering `07:00` makes Windows start ESPLink every day at that time. The PC must be available for the scheduled task to run.
+
+If the supervised host exits unexpectedly, the launcher waits briefly and attempts to restart it.
+
+### 4. Local connection
+
+When the ESP32 is on the same LAN as the Windows PC:
+
+```text
+Phone/tablet browser
+        |
+        v
+   steamlink.local
+        |
+        v
+      ESP32
+        |
+        v
+ Windows ESPLink host
+        |
+        v
+   Game + WebRTC
+```
+
+Open `steamlink.local` in the browser and connect to the available host.
+
+The ESP32 handles the gateway/discovery side; the Windows host handles the actual stream.
+
+### 5. Remote connection
+
+For a connection from outside the home network, the Windows host can start a Cloudflare Quick Tunnel.
+
+The Quick Tunnel URL is a **rendezvous address**. KeyVal does not carry the game's video or audio. The actual media/input path is WebRTC between the browser and Windows host.
+
+Remote WebRTC connectivity may additionally require suitable ICE/STUN/TURN configuration. A Quick Tunnel by itself does not guarantee that WebRTC media can establish a direct path.
+
+### 6. Streaming
+
+The Windows PC provides the real-time media path:
+
+```text
+Windows desktop
+     |
+     +--> Video --> WebRTC --> Browser
+     |
+     +--> Audio --> WebRTC --> Browser
+```
+
+The stream page provides connection and stream diagnostics. Video quality, FPS, bitrate, connection state, packet loss, and related WebRTC statistics can be inspected while testing.
+
+### 7. Input
+
+ESPLink currently supports:
+
+- Keyboard
+- Mouse
+- Browser touch controls
+
+Gamepad input is **not part of the current project plan**.
+
+Keyboard/mouse injection on Windows is deliberately protected by the `ESPLINK_INPUT_ENABLED` setting.
+
+### 8. Audio troubleshooting
+
+Audio is the part that deserves the most attention during real-world testing.
+
+A successful WebRTC connection can show an audio track and receiver while the computer still produces no audible sound. If that happens, use the stream diagnostics to determine whether the problem is Windows audio capture, WebRTC transport, browser playback, or the selected browser output device.
+
+The Windows host uses WASAPI loopback through the optional SoundCard dependency to capture the speaker mix. The browser must also be allowed to play the received audio.
+
+### 9. Testing without the ESP32
+
+If the ESP32 is unavailable, run the simulator:
+
+```text
+python simulator/esp_link_simulator.py
+```
+
+Then point the heartbeat agent at it:
+
+```powershell
+$env:ESPLINK_ESP32="http://127.0.0.1:8080"
+python -m host.network.heartbeat
+```
+
+This lets you work on the Windows/browser side without having the physical gateway connected.
+
+### 10. Troubleshooting checklist
+
+**Host is offline**
+
+- Make sure `host.host_server` is running.
+- Check that port `8765` is available.
+- Check the host authorization code.
+- For remote mode, verify that `cloudflared` started successfully and that the Quick Tunnel URL was published.
+
+**Remote lookup is empty**
+
+- Check that the KeyVal key is configured on both sides.
+- Make sure the host successfully published the current Quick Tunnel URL.
+- Remember that Quick Tunnel addresses are temporary and change when a new tunnel is created.
+
+**Remote WebRTC connects but media does not**
+
+- Check the ICE configuration.
+- For difficult NAT situations, a TURN relay may be required.
+- Use the stream diagnostics to inspect ICE and connection states.
+
+**Video works but audio does not**
+
+- Check the Windows playback/capture device.
+- Check the audio diagnostics.
+- Press the browser's audio/unmute control after the stream connects.
+- Check that the browser is allowed to play audio and is using the intended output device.
+
+**Input does not work**
+
+- Confirm that `ESPLINK_INPUT_ENABLED=1` is set on the Windows host.
+- Verify that the browser's input channel reaches the host.
+- Check the input diagnostics.
+
+### 11. Useful commands
+
+Start the host directly:
+
+```text
+python -m host.host_server
+```
+
+Start the simulator:
+
+```text
+python simulator/esp_link_simulator.py
+```
+
+Run the tests:
+
+```text
+python -m unittest discover -s tests -p "test_*.py"
+```
+
+Check Cloudflare:
+
+```text
+cloudflared version
+```
+
+For normal personal use, `start_server.bat` is the recommended Windows starting point.
+
 ## Run the Windows host
 
 From the repository root:
@@ -102,7 +305,7 @@ $env:ESPLINK_INPUT_ENABLED="1"
 python -m host.host_server
 ```
 
-Gamepad transport is part of the protocol but does not yet inject a virtual controller on Windows.
+Gamepad input is not part of the current project plan. ESPLink focuses on keyboard, mouse, and browser touch input.
 
 ## Audio
 
