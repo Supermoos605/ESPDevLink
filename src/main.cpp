@@ -26,6 +26,8 @@ const char* FALLBACK_AP_NAME = "ESPLink-Setup";
 const char* FALLBACK_AP_PASSWORD = "esp-link-setup";
 
 constexpr unsigned long WIFI_TIMEOUT_MS = 15000;
+constexpr uint8_t BOOT_BUTTON_PIN = 0; // Built-in BOOT button on ESP32 DevKit V1
+constexpr unsigned long FALLBACK_HOLD_MS = 3000;
 constexpr unsigned long PC_TIMEOUT_MS = 5000;
 constexpr size_t MAX_HEARTBEAT_BYTES = 2048;
 
@@ -128,7 +130,24 @@ void startFallbackAP() {
     }
 }
 
-void connectWiFi() {
+bool fallbackButtonHeld() {
+    pinMode(BOOT_BUTTON_PIN, INPUT_PULLUP);
+    if (digitalRead(BOOT_BUTTON_PIN) != LOW) return false;
+    Serial.println("BOOT button held; checking for forced fallback...");
+    const unsigned long startedAt = millis();
+    while (digitalRead(BOOT_BUTTON_PIN) == LOW && millis() - startedAt < FALLBACK_HOLD_MS) delay(25);
+    if (millis() - startedAt >= FALLBACK_HOLD_MS) {
+        Serial.println("Forced fallback requested.");
+        return true;
+    }
+    return false;
+}
+
+void connectWiFi(bool forceFallback = false) {
+    if (forceFallback) {
+        startFallbackAP();
+        return;
+    }
     if (!configuredWiFi()) {
         Serial.println("Wi-Fi credentials are not configured.");
         startFallbackAP();
@@ -230,7 +249,8 @@ void setup() {
         return;
     }
     Serial.println("LittleFS mounted.");
-    connectWiFi();
+    const bool forceFallback = fallbackButtonHeld();
+    connectWiFi(forceFallback);
     startMDNS();
 
     server.serveStatic("/", LittleFS, "/")
