@@ -85,8 +85,8 @@ set "CLOUDFLARED_PATH=C:\Cloudflared\cloudflared.exe"
 if not defined ESPDEVLINK_TUNNEL_STARTED (
   set "ESPDEVLINK_TUNNEL_STARTED=1"
   echo [ESPDevLink] Starting Cloudflare Quick Tunnel...
-  start "" /b cmd /c "python -u tools\remote_share.py"
-  echo [ESPDevLink] Cloudflare output will appear below.
+  start "" /b python -u tools\remote_share.py
+  echo [ESPDevLink] Cloudflare output will appear below.\necho [ESPDevLink] Expected executable: C:\Cloudflared\cloudflared.exe
   echo.
 )
 
