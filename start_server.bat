@@ -82,6 +82,14 @@ set "ESPLINK_SUPERVISED=1"
 set "ESPLINK_INPUT_ENABLED=1"
 if not defined ESPLINK_AUTH_CODE set "ESPLINK_AUTH_CODE=DEVTEST"
 
+if not defined ESPDEVLINK_TUNNEL_STARTED (
+  set "ESPDEVLINK_TUNNEL_STARTED=1"
+  echo [ESPDevLink] Starting Cloudflare Quick Tunnel...
+  start "" /b cmd /c "python -u tools\remote_share.py"
+  echo [ESPDevLink] Cloudflare output will appear below.
+  echo.
+)
+
 :server_loop
 echo.
 echo [ESPDevLink] Starting host...
