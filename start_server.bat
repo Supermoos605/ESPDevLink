@@ -87,9 +87,9 @@ echo.
 echo [ESPDevLink] Starting host...
 echo.
 echo [ESPDevLink] Starting Windows host...
-echo [ESPDevLink] The host will start its Cloudflare Quick Tunnel automatically.
+echo [ESPDevLink] Full host and Cloudflare output follows below.
 echo.
-python -m host.host_server
+python -u -m host.host_server
 set "EXIT_CODE=%ERRORLEVEL%"
 if "%EXIT_CODE%"=="0" exit /b 0
 if "%ESPLINK_SUPERVISED%"=="0" exit /b %EXIT_CODE%
