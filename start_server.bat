@@ -85,6 +85,10 @@ if not defined ESPLINK_AUTH_CODE set "ESPLINK_AUTH_CODE=DEVTEST"
 :server_loop
 echo.
 echo [ESPDevLink] Starting host...
+echo.
+echo [ESPDevLink] Starting Windows host...
+echo [ESPDevLink] The host will start its Cloudflare Quick Tunnel automatically.
+echo.
 python -m host.host_server
 set "EXIT_CODE=%ERRORLEVEL%"
 if "%EXIT_CODE%"=="0" exit /b 0
