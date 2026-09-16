@@ -27,10 +27,9 @@ goto menu
 
 :start
 set "ESPLINK_INPUT_ENABLED=1"
-if not defined ESPLINK_AUTH_CODE set "ESPLINK_AUTH_CODE=DEVTEST"
+set "CLOUDFLARED_PATH=C:\Cloudflared\cloudflared.exe"
 call :run_server
-pause
-goto menu
+exit /b %ERRORLEVEL%
 
 :schedule
 set /p "time=Enter daily start time (HH:MM): "
