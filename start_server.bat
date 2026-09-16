@@ -80,7 +80,8 @@ exit /b
 :run_server
 set "ESPLINK_SUPERVISED=1"
 set "ESPLINK_INPUT_ENABLED=1"
-if not defined ESPLINK_AUTH_CODE set "ESPLINK_AUTH_CODE=DEVTEST"
+set "CLOUDFLARED_PATH=C:\Cloudflared\cloudflared.exe"
+
 
 if not defined ESPDEVLINK_TUNNEL_STARTED (
   set "ESPDEVLINK_TUNNEL_STARTED=1"
