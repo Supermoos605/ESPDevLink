@@ -80,6 +80,7 @@ class ESP32Heartbeat:
             "ip": network["host"],
             "game": status["game"],
             "stream": status["stream"],
+            "connection_mode": os.environ.get("ESPLINK_CONNECTION_MODE", "AUTOMATIC"),
         }).encode("utf-8")
         request = Request(
             f"{ESP32_URL}/api/pc/heartbeat",
