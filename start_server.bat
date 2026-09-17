@@ -82,12 +82,13 @@ set "ESPLINK_SUPERVISED=1"
 set "ESPLINK_INPUT_ENABLED=1"
 set "ESPLINK_AUTH_CODE=DEVTEST"
 set "CLOUDFLARED_PATH=C:\Cloudflared\cloudflared.exe"
-
+set "PYTHON_EXE=%~dp0.venv\Scripts\python.exe"
+if not exist "%PYTHON_EXE%" set "PYTHON_EXE=python"
 
 if not defined ESPDEVLINK_TUNNEL_STARTED (
   set "ESPDEVLINK_TUNNEL_STARTED=1"
   echo [ESPDevLink] Starting Cloudflare Quick Tunnel...
-  start "" /b python -u tools\remote_share.py
+  start "" /b "%PYTHON_EXE%" -u tools\remote_share.py
   echo [ESPDevLink] Cloudflare output will appear below.\necho [ESPDevLink] Expected executable: C:\Cloudflared\cloudflared.exe
   echo.
 )
@@ -99,7 +100,7 @@ echo.
 echo [ESPDevLink] Starting Windows host...
 echo [ESPDevLink] Full host and Cloudflare output follows below.
 echo.
-python -u -m host.host_server
+"%PYTHON_EXE%" -u -m host.host_server
 set "EXIT_CODE=%ERRORLEVEL%"
 if "%EXIT_CODE%"=="0" exit /b 0
 if "%ESPLINK_SUPERVISED%"=="0" exit /b %EXIT_CODE%
