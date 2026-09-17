@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <LittleFS.h>
+#include <Preferences.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
@@ -10,11 +11,16 @@
 
 #include "../include/espdevlink_secrets.h"
 
-// Non-secret defaults stay in source; private credentials live in the ignored
+// Compile-time defaults stay in source; private credentials live in the ignored
 // include/espdevlink_secrets.h file and are never committed to GitHub.
-const char* WIFI_SSID = ESPDEVLINK_WIFI_SSID;
-const char* WIFI_PASSWORD = ESPDEVLINK_WIFI_PASSWORD;
+const char* DEFAULT_WIFI_SSID = ESPDEVLINK_WIFI_SSID;
+const char* DEFAULT_WIFI_PASSWORD = ESPDEVLINK_WIFI_PASSWORD;
 const char* ACCESS_CODE = ESPDEVLINK_ACCESS_CODE;
+
+// Runtime Wi-Fi credentials are stored locally in ESP32 NVS.
+Preferences wifiPreferences;
+String WIFI_SSID;
+String WIFI_PASSWORD;
 
 // Cross-network rendezvous settings.
 const char* KEYVAL_BASE_URL = "https://api.keyval.org";
@@ -30,6 +36,8 @@ constexpr uint8_t BOOT_BUTTON_PIN = 0; // Built-in BOOT button on ESP32 DevKit V
 constexpr unsigned long FALLBACK_HOLD_MS = 3000;
 constexpr unsigned long PC_TIMEOUT_MS = 5000;
 constexpr size_t MAX_HEARTBEAT_BYTES = 2048;
+constexpr size_t MAX_WIFI_SSID_BYTES = 64;
+constexpr size_t MAX_WIFI_PASSWORD_BYTES = 64;
 
 AsyncWebServer server(80);
 String pcName = "Gaming PC";
@@ -51,6 +59,21 @@ unsigned long remoteCheckedAt = 0;
 constexpr unsigned long REMOTE_LOOKUP_INTERVAL_MS = 30000;
 
 bool pcOnline() { return pcKnown && millis() - lastPCHeartbeat <= PC_TIMEOUT_MS; }
+
+void loadWiFiCredentials() {
+    wifiPreferences.begin("wifi", false);
+    WIFI_SSID = wifiPreferences.getString("ssid", DEFAULT_WIFI_SSID);
+    WIFI_PASSWORD = wifiPreferences.getString("password", DEFAULT_WIFI_PASSWORD);
+    Serial.print("Configured Wi-Fi SSID: ");
+    Serial.println(WIFI_SSID.length() ? WIFI_SSID : "(none)");
+}
+
+void saveWiFiCredentials(const String& ssid, const String& password) {
+    wifiPreferences.putString("ssid", ssid);
+    wifiPreferences.putString("password", password);
+    WIFI_SSID = ssid;
+    WIFI_PASSWORD = password;
+}
 
 bool lookupRemoteURL() {
     if (strlen(KEYVAL_KEY) < 10 || strlen(RENDEZVOUS_DEVICE_ID) == 0) {
@@ -116,7 +139,7 @@ void sendError(AsyncWebServerRequest* request, int code, const char* message) {
 }
 
 bool configuredWiFi() {
-    return strlen(WIFI_SSID) > 0 && strcmp(WIFI_SSID, "YOUR_WIFI_NAME") != 0;
+    return WIFI_SSID.length() > 0 && WIFI_SSID != "YOUR_WIFI_NAME";
 }
 
 void startFallbackAP() {
@@ -157,7 +180,7 @@ void connectWiFi(bool forceFallback = false) {
         return;
     }
     WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    WiFi.begin(WIFI_SSID.c_str(), WIFI_PASSWORD.c_str());
     wifiAttempts++;
     Serial.print("Connecting to Wi-Fi");
     const unsigned long startedAt = millis();
@@ -262,6 +285,7 @@ void setup() {
         return;
     }
     Serial.println("LittleFS mounted.");
+    loadWiFiCredentials();
     const bool forceFallback = fallbackButtonHeld();
     connectWiFi(forceFallback);
     startMDNS();
@@ -330,6 +354,57 @@ void setup() {
             output["session_type"] = "pc";
             sendJson(request, output);
             body = "";
+        });
+
+    // Wi-Fi provisioning is intentionally available only while the ESP32 is
+    // running its protected fallback setup AP. Saving credentials restarts the
+    // ESP32 so it immediately attempts the new network.
+    server.on("/api/wifi/configure", HTTP_POST, [](AsyncWebServerRequest* request) {}, nullptr,
+        [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+            static String body;
+            if (wifiMode != "fallback_ap") {
+                if (index + len == total) sendError(request, 409, "Wi-Fi setup is only available in fallback mode");
+                return;
+            }
+            if (index == 0) body = "";
+            if (total > 2048 || body.length() + len > 2048) {
+                body = "";
+                sendError(request, 413, "Wi-Fi configuration is too large");
+                return;
+            }
+            for (size_t i = 0; i < len; ++i) body += static_cast<char>(data[i]);
+            if (index + len != total) return;
+
+            JsonDocument input;
+            if (deserializeJson(input, body) || !input["ssid"].is<const char*>() || !input["password"].is<const char*>()) {
+                body = "";
+                sendError(request, 400, "SSID and password are required");
+                return;
+            }
+            String ssid = input["ssid"].as<String>();
+            String password = input["password"].as<String>();
+            ssid.trim();
+            if (ssid.length() == 0 || ssid.length() > MAX_WIFI_SSID_BYTES) {
+                body = "";
+                sendError(request, 400, "SSID must be 1-64 characters");
+                return;
+            }
+            if (password.length() > MAX_WIFI_PASSWORD_BYTES) {
+                body = "";
+                sendError(request, 400, "Password must be 64 characters or fewer");
+                return;
+            }
+
+            saveWiFiCredentials(ssid, password);
+            wifiLastFailure = "";
+            JsonDocument output;
+            output["ok"] = true;
+            output["ssid"] = WIFI_SSID;
+            output["message"] = "Wi-Fi credentials saved. Restarting...";
+            sendJson(request, output);
+            body = "";
+            delay(750);
+            ESP.restart();
         });
 
     server.on("/api/remote", HTTP_GET, [](AsyncWebServerRequest* request) {
