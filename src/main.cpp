@@ -38,6 +38,8 @@ String currentGame = "";
 String streamState = "Ready";
 String pcConnectionMode = "AUTOMATIC";
 String wifiMode = "disconnected";
+String wifiLastFailure = "";
+uint8_t wifiAttempts = 0;
 String activeSession = "";
 String pcSession = "";
 unsigned long lastPCHeartbeat = 0;
@@ -156,6 +158,7 @@ void connectWiFi(bool forceFallback = false) {
     }
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    wifiAttempts++;
     Serial.print("Connecting to Wi-Fi");
     const unsigned long startedAt = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - startedAt < WIFI_TIMEOUT_MS) {
@@ -169,7 +172,15 @@ void connectWiFi(bool forceFallback = false) {
         Serial.println(WiFi.localIP());
         return;
     }
-    Serial.println("Wi-Fi connection timed out.");
+    switch (WiFi.status()) {
+        case WL_NO_SSID_AVAIL: wifiLastFailure = "SSID not found"; break;
+        case WL_CONNECT_FAILED: wifiLastFailure = "Connection failed (check password/security)"; break;
+        case WL_CONNECTION_LOST: wifiLastFailure = "Connection lost"; break;
+        case WL_DISCONNECTED: wifiLastFailure = "Disconnected / no association"; break;
+        default: wifiLastFailure = "Wi-Fi connection timed out"; break;
+    }
+    Serial.print("Wi-Fi failure reason: ");
+    Serial.println(wifiLastFailure);
     startFallbackAP();
 }
 
@@ -356,6 +367,11 @@ void setup() {
         doc["mdns_ready"] = mdnsReady;
         doc["wifi_mode"] = wifiMode;
         doc["wifi_rssi"] = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
+        doc["wifi_ssid"] = WIFI_SSID;
+        doc["wifi_status"] = (int)WiFi.status();
+        doc["wifi_failure"] = wifiLastFailure;
+        doc["wifi_attempts"] = wifiAttempts;
+        doc["fallback_ip"] = WiFi.softAPIP().toString();
         doc["pc_online"] = pcOnline();
         doc["remote_online"] = remoteOnline;
         doc["remote_url"] = remoteURL;
