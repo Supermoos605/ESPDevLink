@@ -78,8 +78,6 @@ async function collectStreamStats(){
 async function loginHost(interactive=true){const saved=localStorage.getItem('espLinkHostSession');if(saved){hostSession=saved;try{await request(hostBase,'/api/connect',{method:'POST',body:JSON.stringify({game:localStorage.getItem('espLinkSelectedGame')||'Test Stream',session_id:hostSession})});diag('saved host session','reused');return;}catch(error){localStorage.removeItem('espLinkHostSession');hostSession='';diag('saved host session','expired');}}if(!interactive)throw new Error('Host authorization session expired. Press Retry to authorize again.');const code=window.prompt('Enter the Windows host authorization code:');if(!code)throw new Error('Host authorization code is required.');const login=await request(hostBase,'/api/auth/login',{method:'POST',body:JSON.stringify({code,client_id:`browser-${Date.now()}`})});hostSession=login.session_id;if(!hostSession)throw new Error('The Windows host did not return a session.');localStorage.setItem('espLinkHostSession',hostSession);}
 async function connectHost(interactive=true){
   const mode=CONNECTION_MODE;
-  window.ESPLinkRequestedConnectionMode=effectiveMode;
-  window.ESPLinkConnectionMode=mode;
   window.ESPLinkConnectionTransition='SELECTING';
   diag('connection mode',mode);
   window.ESPLinkDashboard?.update?.();
@@ -87,6 +85,8 @@ async function connectHost(interactive=true){
   const remote=await request('','/api/remote').catch(()=>null);
   const advertisedMode=String(localPC?.connection_mode||'').toUpperCase();
   const effectiveMode=advertisedMode==='FORCE_REMOTE'?'FORCE_REMOTE':CONNECTION_MODE;
+  window.ESPLinkRequestedConnectionMode=effectiveMode;
+  window.ESPLinkConnectionMode=effectiveMode;
   const localAvailable=!!(localPC?.online&&localPC?.ip);
   const remoteAvailable=!!(remote?.online&&remote?.url);
   diag('connection candidates',`local=${localAvailable?'available':'unavailable'}, remote=${remoteAvailable?'available':'unavailable'}`);
