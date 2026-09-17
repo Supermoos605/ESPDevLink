@@ -15,12 +15,15 @@
 // include/espdevlink_secrets.h file and are never committed to GitHub.
 const char* DEFAULT_WIFI_SSID = ESPDEVLINK_WIFI_SSID;
 const char* DEFAULT_WIFI_PASSWORD = ESPDEVLINK_WIFI_PASSWORD;
+const char* FALLBACK_WIFI_SSID = ESPDEVLINK_FALLBACK_WIFI_SSID;
+const char* FALLBACK_WIFI_PASSWORD = ESPDEVLINK_FALLBACK_WIFI_PASSWORD;
 const char* ACCESS_CODE = ESPDEVLINK_ACCESS_CODE;
 
 // Runtime Wi-Fi credentials are stored locally in ESP32 NVS.
 Preferences wifiPreferences;
 String WIFI_SSID;
 String WIFI_PASSWORD;
+String activeWiFiSSID;
 
 // Cross-network rendezvous settings.
 const char* KEYVAL_BASE_URL = "https://api.keyval.org";
@@ -64,6 +67,7 @@ void loadWiFiCredentials() {
     wifiPreferences.begin("wifi", false);
     WIFI_SSID = wifiPreferences.getString("ssid", DEFAULT_WIFI_SSID);
     WIFI_PASSWORD = wifiPreferences.getString("password", DEFAULT_WIFI_PASSWORD);
+    activeWiFiSSID = WIFI_SSID;
     Serial.print("Configured Wi-Fi SSID: ");
     Serial.println(WIFI_SSID.length() ? WIFI_SSID : "(none)");
 }
@@ -73,6 +77,7 @@ void saveWiFiCredentials(const String& ssid, const String& password) {
     wifiPreferences.putString("password", password);
     WIFI_SSID = ssid;
     WIFI_PASSWORD = password;
+    activeWiFiSSID = ssid;
 }
 
 bool lookupRemoteURL() {
@@ -142,6 +147,60 @@ bool configuredWiFi() {
     return WIFI_SSID.length() > 0 && WIFI_SSID != "YOUR_WIFI_NAME";
 }
 
+bool configuredFallbackWiFi() {
+    return strlen(FALLBACK_WIFI_SSID) > 0 &&
+           strcmp(FALLBACK_WIFI_SSID, "YOUR_FALLBACK_WIFI_NAME") != 0;
+}
+
+String wifiFailureReason() {
+    switch (WiFi.status()) {
+        case WL_NO_SSID_AVAIL: return "SSID not found";
+        case WL_CONNECT_FAILED: return "Connection failed (check password/security)";
+        case WL_CONNECTION_LOST: return "Connection lost";
+        case WL_DISCONNECTED: return "Disconnected / no association";
+        default: return "Wi-Fi connection timed out";
+    }
+}
+
+bool tryWiFiNetwork(const char* ssid, const char* password, const char* label) {
+    if (ssid == nullptr || strlen(ssid) == 0) return false;
+
+    WiFi.disconnect(true, true);
+    delay(100);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    wifiAttempts++;
+
+    Serial.print("Connecting to ");
+    Serial.print(label);
+    Serial.print(" Wi-Fi (SSID: ");
+    Serial.print(ssid);
+    Serial.print(")");
+
+    const unsigned long startedAt = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startedAt < WIFI_TIMEOUT_MS) {
+        delay(250);
+        Serial.print('.');
+    }
+    Serial.println();
+
+    if (WiFi.status() == WL_CONNECTED) {
+        activeWiFiSSID = ssid;
+        wifiMode = "station";
+        Serial.print("Wi-Fi connected using ");
+        Serial.print(label);
+        Serial.print(" network. IP: ");
+        Serial.println(WiFi.localIP());
+        return true;
+    }
+
+    wifiLastFailure = wifiFailureReason();
+    Serial.print(label);
+    Serial.print(" Wi-Fi failure reason: ");
+    Serial.println(wifiLastFailure);
+    return false;
+}
+
 void startFallbackAP() {
     WiFi.mode(WIFI_AP_STA);
     bool started = WiFi.softAP(FALLBACK_AP_NAME, FALLBACK_AP_PASSWORD);
@@ -175,35 +234,24 @@ void connectWiFi(bool forceFallback = false) {
         return;
     }
     if (!configuredWiFi()) {
-        Serial.println("Wi-Fi credentials are not configured.");
-        startFallbackAP();
+        Serial.println("Primary Wi-Fi credentials are not configured.");
+    } else if (tryWiFiNetwork(WIFI_SSID.c_str(), WIFI_PASSWORD.c_str(), "primary")) {
+        wifiLastFailure = "";
         return;
     }
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID.c_str(), WIFI_PASSWORD.c_str());
-    wifiAttempts++;
-    Serial.print("Connecting to Wi-Fi");
-    const unsigned long startedAt = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startedAt < WIFI_TIMEOUT_MS) {
-        delay(250);
-        Serial.print('.');
+
+    if (configuredFallbackWiFi()) {
+        Serial.println("Primary Wi-Fi unavailable; trying fallback network...");
+        if (tryWiFiNetwork(FALLBACK_WIFI_SSID, FALLBACK_WIFI_PASSWORD, "fallback")) {
+            wifiLastFailure = "Primary network unavailable; connected to fallback network";
+            return;
+        }
+        wifiLastFailure = "Primary and fallback Wi-Fi networks unavailable";
+    } else {
+        Serial.println("No fallback Wi-Fi network is configured.");
     }
-    Serial.println();
-    if (WiFi.status() == WL_CONNECTED) {
-        wifiMode = "station";
-        Serial.print("Wi-Fi connected. IP: ");
-        Serial.println(WiFi.localIP());
-        return;
-    }
-    switch (WiFi.status()) {
-        case WL_NO_SSID_AVAIL: wifiLastFailure = "SSID not found"; break;
-        case WL_CONNECT_FAILED: wifiLastFailure = "Connection failed (check password/security)"; break;
-        case WL_CONNECTION_LOST: wifiLastFailure = "Connection lost"; break;
-        case WL_DISCONNECTED: wifiLastFailure = "Disconnected / no association"; break;
-        default: wifiLastFailure = "Wi-Fi connection timed out"; break;
-    }
-    Serial.print("Wi-Fi failure reason: ");
-    Serial.println(wifiLastFailure);
+
+    Serial.println("No configured Wi-Fi network could be reached.");
     startFallbackAP();
 }
 
@@ -442,7 +490,7 @@ void setup() {
         doc["mdns_ready"] = mdnsReady;
         doc["wifi_mode"] = wifiMode;
         doc["wifi_rssi"] = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
-        doc["wifi_ssid"] = WIFI_SSID;
+        doc["wifi_ssid"] = activeWiFiSSID;
         doc["wifi_status"] = (int)WiFi.status();
         doc["wifi_failure"] = wifiLastFailure;
         doc["wifi_attempts"] = wifiAttempts;
