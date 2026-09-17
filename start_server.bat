@@ -27,6 +27,7 @@ goto menu
 
 :start
 set "ESPLINK_INPUT_ENABLED=1"
+set "ESPLINK_AUTH_CODE=DEVTEST"
 set "CLOUDFLARED_PATH=C:\Cloudflared\cloudflared.exe"
 call :run_server
 exit /b %ERRORLEVEL%
@@ -79,6 +80,7 @@ exit /b
 :run_server
 set "ESPLINK_SUPERVISED=1"
 set "ESPLINK_INPUT_ENABLED=1"
+set "ESPLINK_AUTH_CODE=DEVTEST"
 set "CLOUDFLARED_PATH=C:\Cloudflared\cloudflared.exe"
 
 
