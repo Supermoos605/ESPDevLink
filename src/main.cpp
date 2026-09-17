@@ -36,6 +36,7 @@ String pcName = "Gaming PC";
 String pcIP = "";
 String currentGame = "";
 String streamState = "Ready";
+String pcConnectionMode = "AUTOMATIC";
 String wifiMode = "disconnected";
 String activeSession = "";
 String pcSession = "";
@@ -228,6 +229,7 @@ void handleHeartbeatBody(AsyncWebServerRequest* request, uint8_t* data, size_t l
     if (doc["ip"].is<const char*>()) pcIP = doc["ip"].as<String>();
     if (doc["game"].is<const char*>()) currentGame = doc["game"].as<String>();
     if (doc["stream"].is<const char*>()) streamState = doc["stream"].as<String>();
+    if (doc["connection_mode"].is<const char*>()) pcConnectionMode = doc["connection_mode"].as<String>();
     pcKnown = true;
     lastPCHeartbeat = millis();
     JsonDocument response;
@@ -367,6 +369,7 @@ void setup() {
         doc["online"] = pcOnline();
         doc["game"] = currentGame;
         doc["stream"] = streamState;
+        doc["connection_mode"] = pcConnectionMode;
         sendJson(request, doc);
     });
 
