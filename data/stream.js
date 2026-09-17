@@ -74,7 +74,34 @@ async function collectStreamStats(){
     });
     window.ESPLinkStreamStats=values; window.ESPLinkDashboard?.update?.();
   }catch(error){diag('stats','failed — '+error.message);}
-}function sendInput(type,action,data={}){if(inputChannel&&inputChannel.readyState==='open'){try{inputChannel.send(JSON.stringify({type,action,data}));}catch(error){diag('input send error',error.message);}}}
+}async function request(base,path,options={}){const headers={'Content-Type':'application/json',...(options.headers||{})};if(base===hostBase&&hostSession)headers['X-ESPLink-Host-Session']=hostSession;const response=await fetch(base+path,{cache:'no-store',...options,headers});if(!response.ok)throw new Error((await response.json().catch(()=>({}))).error||`HTTP ${response.status}`);return response.json();}
+async function loginHost(interactive=true){const saved=localStorage.getItem('espLinkHostSession');if(saved){hostSession=saved;try{await request(hostBase,'/api/connect',{method:'POST',body:JSON.stringify({game:localStorage.getItem('espLinkSelectedGame')||'Test Stream',session_id:hostSession})});diag('saved host session','reused');return;}catch(error){localStorage.removeItem('espLinkHostSession');hostSession='';diag('saved host session','expired');}}if(!interactive)throw new Error('Host authorization session expired. Press Retry to authorize again.');const code=window.prompt('Enter the Windows host authorization code:');if(!code)throw new Error('Host authorization code is required.');const login=await request(hostBase,'/api/auth/login',{method:'POST',body:JSON.stringify({code,client_id:`browser-${Date.now()}`})});hostSession=login.session_id;if(!hostSession)throw new Error('The Windows host did not return a session.');localStorage.setItem('espLinkHostSession',hostSession);}
+async function connectHost(interactive=true){
+  const mode=CONNECTION_MODE;
+  window.ESPLinkRequestedConnectionMode=mode;
+  window.ESPLinkConnectionMode=mode;
+  window.ESPLinkConnectionTransition='SELECTING';
+  diag('connection mode',mode);
+  window.ESPLinkDashboard?.update?.();
+  const localPC=await request('','/api/pc');
+  const remote=await request('','/api/remote').catch(()=>null);
+  const localAvailable=!!(localPC?.online&&localPC?.ip);
+  const remoteAvailable=!!(remote?.online&&remote?.url);
+  diag('connection candidates',`local=${localAvailable?'available':'unavailable'}, remote=${remoteAvailable?'available':'unavailable'}`);
+  let selectedMode='';
+  if(mode==='LOCAL'){if(!localAvailable)throw new Error('Local host is unavailable.');selectedMode='LOCAL';}
+  else if(mode==='REMOTE'||mode==='FORCE_REMOTE'){if(!remoteAvailable)throw new Error('Remote host tunnel is unavailable.');selectedMode='REMOTE';}
+  else{if(localAvailable&&lastFailedConnectionRoute!=='LOCAL')selectedMode='LOCAL';else if(remoteAvailable&&lastFailedConnectionRoute!=='REMOTE')selectedMode='REMOTE';else if(localAvailable)selectedMode='LOCAL';else if(remoteAvailable)selectedMode='REMOTE';else throw new Error('Neither a local host nor a remote host tunnel is available.');}
+  if(selectedMode==='LOCAL'){hostBase=`http://${localPC.ip}:8765`;window.ESPLinkConnectionMode='LOCAL';window.ESPLinkConnectionTransition='READY';diag('connection selected','LOCAL');}
+  else{hostBase=String(remote.url).replace(/\/$/,'');window.ESPLinkConnectionMode=mode==='FORCE_REMOTE'?'FORCED_REMOTE':'REMOTE';window.ESPLinkConnectionTransition='READY';diag('connection selected',mode==='FORCE_REMOTE'?'FORCED REMOTE via Quick Tunnel':'REMOTE via Quick Tunnel');}
+  window.ESPLinkHostBase=hostBase;
+  window.ESPLinkDashboard?.update?.();
+  await loginHost(interactive);
+  diag('connection route ready',window.ESPLinkConnectionMode);
+  const selected=localStorage.getItem('espLinkSelectedGame')||'Test Stream';
+  return request(hostBase,'/api/connect',{method:'POST',body:JSON.stringify({game:selected,session_id:hostSession})});
+}
+function sendInput(type,action,data={}){if(inputChannel&&inputChannel.readyState==='open'){try{inputChannel.send(JSON.stringify({type,action,data}));}catch(error){diag('input send error',error.message);}}}
 function pointerData(event){const rect=video.getBoundingClientRect();const sourceWidth=video.videoWidth||16;const sourceHeight=video.videoHeight||9;const scale=Math.min(rect.width/sourceWidth,rect.height/sourceHeight);const renderedWidth=sourceWidth*scale;const renderedHeight=sourceHeight*scale;const offsetX=(rect.width-renderedWidth)/2;const offsetY=(rect.height-renderedHeight)/2;const x=(event.clientX-rect.left-offsetX)/renderedWidth;const y=(event.clientY-rect.top-offsetY)/renderedHeight;return{x:Math.max(0,Math.min(1,x)),y:Math.max(0,Math.min(1,y)),inside:x>=0&&x<=1&&y>=0&&y<=1,button:event.button===2?'right':event.button===1?'middle':'left',pointer_type:event.pointerType||'mouse'};}
 function bindInput(){if(inputBound)return;inputBound=true;video.style.touchAction='none';video.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('keydown',e=>{if(stopped||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if(!pressedKeys.has(e.code)){pressedKeys.add(e.code);sendInput('key','down',{code:e.code,key:e.key,repeat:e.repeat});}e.preventDefault();});document.addEventListener('keyup',e=>{if(stopped)return;pressedKeys.delete(e.code);sendInput('key','up',{code:e.code,key:e.key});e.preventDefault();});video.addEventListener('pointermove',e=>{if(!stopped){const d=pointerData(e);if(d.inside)sendInput('mouse','move',d);}});video.addEventListener('pointerdown',e=>{if(stopped)return;const d=pointerData(e);if(!d.inside)return;video.setPointerCapture?.(e.pointerId);pressedButtons.add(d.button);sendInput('mouse','down',d);e.preventDefault();});video.addEventListener('pointerup',e=>{if(stopped)return;const d=pointerData(e);pressedButtons.delete(d.button);sendInput('mouse','up',d);video.releasePointerCapture?.(e.pointerId);e.preventDefault();});video.addEventListener('pointercancel',e=>{if(stopped)return;const d=pointerData(e);pressedButtons.delete(d.button);sendInput('mouse','up',d);e.preventDefault();});video.addEventListener('pointerleave',e=>{if(stopped)return;const d=pointerData(e);if(d.inside)return;sendInput('mouse','leave',d);});video.addEventListener('wheel',e=>{if(!stopped){sendInput('mouse','wheel',{deltaX:e.deltaX,deltaY:e.deltaY});e.preventDefault();}},{passive:false});window.addEventListener('blur',releaseInput);}
 function releaseInput(){for(const code of pressedKeys)sendInput('key','up',{code});for(const button of pressedButtons)sendInput('mouse','up',{button});pressedKeys.clear();pressedButtons.clear();}
