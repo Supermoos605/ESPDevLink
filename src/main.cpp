@@ -15,6 +15,16 @@
 // include/espdevlink_secrets.h file and are never committed to GitHub.
 const char* DEFAULT_WIFI_SSID = ESPDEVLINK_WIFI_SSID;
 const char* DEFAULT_WIFI_PASSWORD = ESPDEVLINK_WIFI_PASSWORD;
+
+// Keep existing private config files compatible. Fallback credentials are
+// optional until the user adds them to espdevlink_secrets.h.
+#ifndef ESPDEVLINK_FALLBACK_WIFI_SSID
+#define ESPDEVLINK_FALLBACK_WIFI_SSID ""
+#endif
+#ifndef ESPDEVLINK_FALLBACK_WIFI_PASSWORD
+#define ESPDEVLINK_FALLBACK_WIFI_PASSWORD ""
+#endif
+
 const char* FALLBACK_WIFI_SSID = ESPDEVLINK_FALLBACK_WIFI_SSID;
 const char* FALLBACK_WIFI_PASSWORD = ESPDEVLINK_FALLBACK_WIFI_PASSWORD;
 const char* ACCESS_CODE = ESPDEVLINK_ACCESS_CODE;
