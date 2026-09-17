@@ -28,6 +28,14 @@ let hostBase='',hostSession=localStorage.getItem('espLinkHostSession')||'',hostS
 let recoveryTimer=null,connectionTimeout=null,iceRecoveryTimer=null,audioStatsTimer=null,lastVideoProgress=0,recoveryInProgress=false;
 const pressedKeys=new Set(),pressedButtons=new Set();
 const labels={ready:'READY',connecting:'CONNECTING',streaming:'LIVE',error:'ERROR',offline:'OFFLINE'};
+function paint({state:nextState,game=''}){
+  if(state){} // retained compatibility
+  if(typeof nextState!=='string') return;
+  if(typeof state!=='undefined' && state) state.textContent=labels[nextState]||nextState.toUpperCase();
+  if(gameName) gameName.textContent=game || '';
+  if(placeholder) placeholder.style.display=nextState==='streaming'?'none':'';
+  if(meta) meta.textContent=nextState==='streaming'?'Connected':'';
+}
 const diagnostics=[];
 function diag(label,value=''){
   const line=`${label}${value!==''?': '+value:''}`;
