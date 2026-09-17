@@ -11,18 +11,20 @@ echo          ESPDevLink Host
 echo ================================
 echo.
 echo 1. Start server now
-echo 2. Schedule daily start
-echo 3. Cancel scheduled start
-echo 4. Show current schedule
-echo 5. Exit
+echo 2. Start server FORCE REMOTE
+echo 3. Schedule daily start
+echo 4. Cancel scheduled start
+echo 5. Show current schedule
+echo 6. Exit
 echo.
 set /p "choice=Select an option: "
 
 if "%choice%"=="1" goto start
-if "%choice%"=="2" goto schedule
-if "%choice%"=="3" goto cancel
-if "%choice%"=="4" goto show
-if "%choice%"=="5" exit /b
+if "%choice%"=="2" goto force_remote
+if "%choice%"=="3" goto schedule
+if "%choice%"=="4" goto cancel
+if "%choice%"=="5" goto show
+if "%choice%"=="6" exit /b
 goto menu
 
 :start
@@ -31,6 +33,10 @@ set "ESPLINK_AUTH_CODE=DEVTEST"
 set "CLOUDFLARED_PATH=C:\Cloudflared\cloudflared.exe"
 call :run_server
 exit /b %ERRORLEVEL%
+
+:force_remote
+set "ESPLINK_CONNECTION_MODE=FORCE_REMOTE"
+goto start
 
 :schedule
 set /p "time=Enter daily start time (HH:MM): "
