@@ -29,6 +29,13 @@ let recoveryTimer=null,connectionTimeout=null,iceRecoveryTimer=null,audioStatsTi
 const pressedKeys=new Set(),pressedButtons=new Set();
 const labels={ready:'READY',connecting:'CONNECTING',streaming:'LIVE',error:'ERROR',offline:'OFFLINE'};
 const diagnostics=[];
+function diag(label,value=''){
+  const line=`${label}${value!==''?': '+value:''}`;
+  diagnostics.push(line);
+  if(diagnostics.length>80) diagnostics.shift();
+  diagnosticPanel.textContent=diagnostics.join('\n');
+  console.debug('[ESPDevLink]',line);
+}
 const diagnosticPanel=document.createElement('pre');
 diagnosticPanel.id='webrtcDiagnostics';
 diagnosticPanel.style.cssText='position:fixed;left:12px;right:12px;bottom:64px;z-index:20;margin:0;padding:10px;border:1px solid #555;border-radius:8px;background:#111;color:#9f9;font:12px/1.35 monospace;white-space:pre-wrap;max-height:34vh;overflow:auto;display:none;';
