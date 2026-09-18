@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#080a0f">
 <title>ESPLink Host Control Center</title>
 <style>
-:root{font-family:Inter,system-ui,sans-serif;color:#f5f7fb;background:#080a0f}
+:root{font-family:Inter,system-ui,sans-serif;color:#f5f7fb;background:#080a0f;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:#080a0f;overflow-x:hidden}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 0%,#1a1740 0,#080a0f 34%),radial-gradient(circle at 90% 15%,#101d43 0,#080a0f 38%);overflow-x:hidden}
 .shell{width:min(1050px,100%);margin:auto;padding:18px 14px 32px}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
 .brand{display:flex;align-items:center;gap:10px}
@@ -19,15 +19,15 @@ body{margin:0;min-height:100vh;background:#080a0f;overflow-x:hidden}
 .status{display:flex;align-items:center;gap:8px;padding:8px 11px;border:1px solid #ffffff12;border-radius:999px;background:#ffffff08;color:#b9c1d1;font-size:11px}
 .dot{width:7px;height:7px;border-radius:50%;background:#49e39b}
 .status.offline .dot{background:#ff6475}
-.hero{border:1px solid #ffffff12;background:#11151f;border-radius:24px;padding:24px 18px;overflow:hidden}
+.hero{border:1px solid #ffffff18;background:linear-gradient(145deg,#151a2a,#10131d 62%,#171329);border-radius:24px;padding:24px 18px;overflow:hidden;box-shadow:0 18px 55px #00000035}
 .eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#8995ad;margin-bottom:9px}
 .hero h2{font-size:clamp(30px,8vw,52px);line-height:1.02;margin:0;letter-spacing:-2px;max-width:700px}
 .hero p{color:#9ca6b8;max-width:650px;line-height:1.55;margin:14px 0 20px;font-size:13px}
 .menu{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.menu-item{appearance:none;border:1px solid #ffffff10;background:#07090e;color:#dfe4ef;border-radius:15px;padding:15px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:12px;min-height:66px;transition:.15s}
-.menu-item:hover{border-color:#ffffff20;background:#151a27;transform:translateY(-1px)}
+.menu-item{appearance:none;border:1px solid #ffffff12;background:linear-gradient(145deg,#0b0e17,#080a10);color:#dfe4ef;border-radius:16px;padding:15px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:12px;min-height:70px;transition:.18s;box-shadow:inset 0 1px #ffffff05}
+.menu-item:hover{border-color:#7180ff66;background:linear-gradient(145deg,#151a2b,#101321);transform:translateY(-2px);box-shadow:0 10px 28px #00000035}
 .menu-item:active{transform:translateY(1px)}
-.menu-num{width:32px;height:32px;flex:0 0 32px;border-radius:10px;background:#151b29;color:#9eabff;display:grid;place-items:center;font-size:12px;font-weight:800}
+.menu-num{width:38px;height:38px;flex:0 0 38px;border-radius:12px;background:linear-gradient(145deg,#202744,#171b2d);color:#aab4ff;display:grid;place-items:center;border:1px solid #ffffff10;box-shadow:inset 0 1px #ffffff0b}.menu-num svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .menu-title{font-size:12px;font-weight:800}
 .menu-desc{font-size:10px;color:#727d91;margin-top:4px;line-height:1.35}
 .page{display:none}
@@ -35,7 +35,7 @@ body{margin:0;min-height:100vh;background:#080a0f;overflow-x:hidden}
 .page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .page-head h3{margin:0;font-size:19px;letter-spacing:-.4px}
 .page-head span{font-size:10px;color:#7f899c;text-transform:uppercase;letter-spacing:1.5px}
-.panel{border:1px solid #ffffff10;background:#07090e;border-radius:16px;padding:16px;margin-bottom:10px}
+.panel{border:1px solid #ffffff10;background:linear-gradient(145deg,#0c0f18,#080a10);border-radius:16px;padding:16px;margin-bottom:10px;box-shadow:0 10px 30px #00000020}
 .rows{display:grid;gap:0}
 .row{display:flex;justify-content:space-between;gap:18px;padding:10px 0;border-bottom:1px solid #ffffff08;font-size:12px}
 .row:last-child{border-bottom:0}
@@ -44,14 +44,14 @@ body{margin:0;min-height:100vh;background:#080a0f;overflow-x:hidden}
 .output{white-space:pre-wrap;color:#bfc7d6;line-height:1.55;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;max-height:430px;overflow:auto}
 .actions{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
 .action{appearance:none;border:1px solid #ffffff12;background:#ffffff08;color:#c8cfdd;border-radius:14px;padding:12px;font-size:12px;font-weight:800;cursor:pointer}
-.action:hover{background:#ffffff0d;border-color:#ffffff20}
+.action:hover{background:#ffffff10;border-color:#7180ff55;transform:translateY(-1px)}
 .action.primary{border:0;background:linear-gradient(135deg,#6476ff,#9257ff);color:white}
 .action:disabled{opacity:.45;cursor:not-allowed}
 .field{display:grid;gap:7px;margin-bottom:12px}
 .field label{color:#8995ad;font-size:10px;text-transform:uppercase;letter-spacing:1.2px}
 .field input,.field select{width:100%;border:1px solid #ffffff14;background:#07090e;color:#f5f7fb;border-radius:11px;padding:11px 12px;font:inherit;font-size:13px;outline:none}
 .field input:focus,.field select:focus{border-color:#7180ff}
-.back{display:block;width:100%;border:1px solid #ffffff0d;background:#ffffff05;color:#8995ad;border-radius:14px;padding:12px;margin-top:10px;font-size:11px;font-weight:800;cursor:pointer}
+.back{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:1px solid #ffffff0d;background:#ffffff05;color:#8995ad;border-radius:14px;padding:12px;margin-top:10px;font-size:11px;font-weight:800;cursor:pointer}.back svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .back:hover{color:#dfe4ef;background:#ffffff08}
 .badge{display:inline-flex;align-items:center;gap:7px;font-size:10px;font-weight:800}
 .badge .dot{width:6px;height:6px}
@@ -83,81 +83,81 @@ body{margin:0;min-height:100vh;background:#080a0f;overflow-x:hidden}
 <h2>Control your ESPLink host.</h2>
 <p>Use the same ESPLink visual design, with a simple numbered flow: choose an option, open its page, perform the action, then return to the main menu.</p>
 <div class="menu">
-<button class="menu-item" onclick="go('status')"><span class="menu-num">1</span><span><div class="menu-title">Host status</div><div class="menu-desc">Computer, address, mode and current host state.</div></span></button>
-<button class="menu-item" onclick="go('operations')"><span class="menu-num">2</span><span><div class="menu-title">Host operations</div><div class="menu-desc">Start, stop, simulator, tests and dependencies.</div></span></button>
-<button class="menu-item" onclick="go('diagnostics')"><span class="menu-num">3</span><span><div class="menu-title">Diagnostics</div><div class="menu-desc">Run the ESPDevLink host diagnostic command.</div></span></button>
-<button class="menu-item" onclick="go('connection')"><span class="menu-num">4</span><span><div class="menu-title">Connection mode</div><div class="menu-desc">Choose automatic, remote or forced remote.</div></span></button>
-<button class="menu-item" onclick="go('network')"><span class="menu-num">5</span><span><div class="menu-title">Network information</div><div class="menu-desc">View LAN address, mDNS and ESP32 gateway.</div></span></button>
-<button class="menu-item" onclick="go('scheduler')"><span class="menu-num">6</span><span><div class="menu-title">Host start time</div><div class="menu-desc">Set or remove the daily Windows start task.</div></span></button>
-<button class="menu-item" onclick="go('streaming')"><span class="menu-num">7</span><span><div class="menu-title">Streaming</div><div class="menu-desc">View stream state and control the active stream.</div></span></button>
-<button class="menu-item" onclick="openWeb()"><span class="menu-num">8</span><span><div class="menu-title">Open web interface</div><div class="menu-desc">Open the host's browser interface.</div></span></button>
-<button class="menu-item" onclick="openEsp()"><span class="menu-num">9</span><span><div class="menu-title">Open ESP32 interface</div><div class="menu-desc">Open steamlink.local in your browser.</div></span></button>
+<button class="menu-item" onclick="go('status')"><span class="menu-num"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="15" rx="2"/><path d="M7 8h10M7 12h6M7 16h4"/></svg></span><span><div class="menu-title">Host status</div><div class="menu-desc">Computer, address, mode and current host state.</div></span></button>
+<button class="menu-item" onclick="go('operations')"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 0 5.4-5.4l-3 3-2-2 3-3Z"/></svg></span><span><div class="menu-title">Host operations</div><div class="menu-desc">Start, stop, simulator, tests and dependencies.</div></span></button>
+<button class="menu-item" onclick="go('diagnostics')"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M4 14h3l2-8 4 14 2-8h5"/></svg></span><span><div class="menu-title">Diagnostics</div><div class="menu-desc">Run the ESPDevLink host diagnostic command.</div></span></button>
+<button class="menu-item" onclick="go('connection')"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M8 12h8M7 7h4a5 5 0 0 1 0 10H7M17 7h-4a5 5 0 0 0 0 10h4"/></svg></span><span><div class="menu-title">Connection mode</div><div class="menu-desc">Choose automatic, remote or forced remote.</div></span></button>
+<button class="menu-item" onclick="go('network')"><span class="menu-num"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v6M12 13l-7 4M12 13l7 4"/></svg></span><span><div class="menu-title">Network information</div><div class="menu-desc">View LAN address, mDNS and ESP32 gateway.</div></span></button>
+<button class="menu-item" onclick="go('scheduler')"><span class="menu-num"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M12 13v3l2 1"/></svg></span><span><div class="menu-title">Host start time</div><div class="menu-desc">Set or remove the daily Windows start task.</div></span></button>
+<button class="menu-item" onclick="go('streaming')"><span class="menu-num"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3Z"/></svg></span><span><div class="menu-title">Streaming</div><div class="menu-desc">View stream state and control the active stream.</div></span></button>
+<button class="menu-item" onclick="openWeb()"><span class="menu-num"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4a12 12 0 0 1 0 16M12 4a12 12 0 0 0 0 16"/></svg></span><span><div class="menu-title">Open web interface</div><div class="menu-desc">Open the host's browser interface.</div></span></button>
+<button class="menu-item" onclick="openEsp()"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z"/><path d="M9 9h6v6H9zM3 9h2M3 15h2M19 9h2M19 15h2M9 3v2M15 3v2M9 19v2M15 19v2"/></svg></span><span><div class="menu-title">Open ESP32 interface</div><div class="menu-desc">Open steamlink.local in your browser.</div></span></button>
 </div>
 </section>
 </section>
 
 <section class="page" id="status">
-<div class="page-head"><div><span>Option 01</span><h3>Host status</h3></div><div class="badge" id="statusBadge"><i class="dot"></i><span>Checking</span></div></div>
+<div class="page-head"><div><span></span><h3>Host status</h3></div><div class="badge" id="statusBadge"><i class="dot"></i><span>Checking</span></div></div>
 <div class="panel"><div class="rows" id="statusRows"></div></div>
 <div class="actions"><button class="action primary" onclick="refresh()">Refresh status</button></div>
-<button class="back" onclick="home()">Back to main menu</button>
+<button class="back" onclick="home()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>Back to main menu</button>
 </section>
 
 <section class="page" id="operations">
-<div class="page-head"><div><span>Option 02</span><h3>Host operations</h3></div></div>
+<div class="page-head"><div><span></span><h3>Host operations</h3></div></div>
 <div class="panel"><div class="menu">
-<button class="menu-item" onclick="runAction('start')"><span class="menu-num">1</span><span><div class="menu-title">Start host server</div><div class="menu-desc">Launch the ESPDevLink Windows host.</div></span></button>
-<button class="menu-item" onclick="runAction('stop')"><span class="menu-num">2</span><span><div class="menu-title">Stop tracked processes</div><div class="menu-desc">Stop host processes started by this control center.</div></span></button>
-<button class="menu-item" onclick="runAction('heartbeat')"><span class="menu-num">3</span><span><div class="menu-title">Network heartbeat</div><div class="menu-desc">Start the host network heartbeat service.</div></span></button>
-<button class="menu-item" onclick="runAction('simulator')"><span class="menu-num">4</span><span><div class="menu-title">Start simulator</div><div class="menu-desc">Launch the ESPLink simulator.</div></span></button>
-<button class="menu-item" onclick="runAction('tests')"><span class="menu-num">5</span><span><div class="menu-title">Run tests</div><div class="menu-desc">Run the Python test suite.</div></span></button>
-<button class="menu-item" onclick="runAction('deps')"><span class="menu-num">6</span><span><div class="menu-title">Install dependencies</div><div class="menu-desc">Install packages from host/requirements.txt.</div></span></button>
-<button class="menu-item" onclick="runAction('venv')"><span class="menu-num">7</span><span><div class="menu-title">Create virtual environment</div><div class="menu-desc">Create the local .venv environment.</div></span></button>
+<button class="menu-item" onclick="runAction('start')"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M12 5v14M7 10l5-5 5 5"/></svg></span><span><div class="menu-title">Start host server</div><div class="menu-desc">Launch the ESPDevLink Windows host.</div></span></button>
+<button class="menu-item" onclick="runAction('stop')"><span class="menu-num"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></span><span><div class="menu-title">Stop tracked processes</div><div class="menu-desc">Stop host processes started by this control center.</div></span></button>
+<button class="menu-item" onclick="runAction('heartbeat')"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg></span><span><div class="menu-title">Network heartbeat</div><div class="menu-desc">Start the host network heartbeat service.</div></span></button>
+<button class="menu-item" onclick="runAction('simulator')"><span class="menu-num"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3Z"/></svg></span><span><div class="menu-title">Start simulator</div><div class="menu-desc">Launch the ESPLink simulator.</div></span></button>
+<button class="menu-item" onclick="runAction('tests')"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><span><div class="menu-title">Run tests</div><div class="menu-desc">Run the Python test suite.</div></span></button>
+<button class="menu-item" onclick="runAction('deps')"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 19h14"/></svg></span><span><div class="menu-title">Install dependencies</div><div class="menu-desc">Install packages from host/requirements.txt.</div></span></button>
+<button class="menu-item" onclick="runAction('venv')"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg></span><span><div class="menu-title">Create virtual environment</div><div class="menu-desc">Create the local .venv environment.</div></span></button>
 </div></div>
 <div class="panel output" id="operationsOut">Select an operation above.</div>
-<button class="back" onclick="home()">Back to main menu</button>
+<button class="back" onclick="home()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>Back to main menu</button>
 </section>
 
 <section class="page" id="diagnostics">
-<div class="page-head"><div><span>Option 03</span><h3>Diagnostics</h3></div></div>
+<div class="page-head"><div><span></span><h3>Diagnostics</h3></div></div>
 <div class="panel output" id="diagnosticsOut">No diagnostic run yet.</div>
 <div class="actions"><button class="action primary" onclick="runAction('diagnostics')">Run diagnostics</button></div>
-<button class="back" onclick="home()">Back to main menu</button>
+<button class="back" onclick="home()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>Back to main menu</button>
 </section>
 
 <section class="page" id="connection">
-<div class="page-head"><div><span>Option 04</span><h3>Connection mode</h3></div></div>
+<div class="page-head"><div><span></span><h3>Connection mode</h3></div></div>
 <div class="panel">
 <div class="field"><label for="connectionMode">Mode</label><select id="connectionMode"><option value="AUTOMATIC">AUTOMATIC — detect local/remote</option><option value="REMOTE">REMOTE — use remote path</option><option value="FORCE_REMOTE">FORCE REMOTE — always use remote</option></select></div>
 <button class="action primary" style="width:100%" onclick="applyMode()">Apply and restart host</button>
 </div>
 <div class="panel output" id="connectionOut">Current mode is loaded from the control center environment.</div>
-<button class="back" onclick="home()">Back to main menu</button>
+<button class="back" onclick="home()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>Back to main menu</button>
 </section>
 
 <section class="page" id="network">
-<div class="page-head"><div><span>Option 05</span><h3>Network information</h3></div></div>
+<div class="page-head"><div><span></span><h3>Network information</h3></div></div>
 <div class="panel"><div class="rows" id="networkRows"></div></div>
 <div class="actions"><button class="action primary" onclick="refresh()">Refresh</button><button class="action" onclick="openEsp()">Open ESP32</button></div>
-<button class="back" onclick="home()">Back to main menu</button>
+<button class="back" onclick="home()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>Back to main menu</button>
 </section>
 
 <section class="page" id="scheduler">
-<div class="page-head"><div><span>Option 06</span><h3>Host start time</h3></div></div>
+<div class="page-head"><div><span></span><h3>Host start time</h3></div></div>
 <div class="panel">
 <div class="field"><label for="scheduleTime">Daily start time</label><input id="scheduleTime" type="time" value="08:00"></div>
 <div class="actions"><button class="action primary" onclick="schedule()">Set daily start</button><button class="action" onclick="showSchedule()">Show current schedule</button><button class="action" onclick="cancelSchedule()">Cancel schedule</button></div>
 </div>
 <div class="panel output" id="scheduleOut">No schedule action performed yet.</div>
-<button class="back" onclick="home()">Back to main menu</button>
+<button class="back" onclick="home()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>Back to main menu</button>
 </section>
 
 <section class="page" id="streaming">
-<div class="page-head"><div><span>Option 07</span><h3>Streaming</h3></div></div>
+<div class="page-head"><div><span></span><h3>Streaming</h3></div></div>
 <div class="panel"><div class="rows" id="streamRows"></div></div>
 <div class="actions"><button class="action primary" onclick="runAction('streamStart')">Start stream</button><button class="action" onclick="runAction('streamStop')">Stop stream</button><button class="action" onclick="refresh()">Refresh</button></div>
 <div class="panel output" id="streamOut" style="margin-top:10px"></div>
-<button class="back" onclick="home()">Back to main menu</button>
+<button class="back" onclick="home()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>Back to main menu</button>
 </section>
 
 <div class="footer">ESPLink · Browser-based PC streaming interface</div>
