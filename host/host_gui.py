@@ -31,17 +31,18 @@ PYTHON = sys.executable
 if (REPO_ROOT / ".venv" / "Scripts" / "python.exe").exists():
     PYTHON = str(REPO_ROOT / ".venv" / "Scripts" / "python.exe")
 
-BG = "#0b111b"
-SIDEBAR = "#101a2a"
-CARD = "#132238"
-CARD_ALT = "#102033"
-BORDER = "#24415f"
-TEXT = "#e8f0fa"
-MUTED = "#8ea4bb"
-BLUE = "#2d8cff"
-GREEN = "#20d46b"
+BG = "#080a0f"
+SIDEBAR = "#0d1018"
+CARD = "#11151f"
+CARD_ALT = "#0c1017"
+BORDER = "#2a2f3a"
+TEXT = "#f5f7fb"
+MUTED = "#8995ad"
+BLUE = "#6d7cff"
+PURPLE = "#9257ff"
+GREEN = "#49e39b"
 YELLOW = "#f4c84a"
-RED = "#ff5d63"
+RED = "#ff6475"
 
 
 class ESPDevLinkGUI(tk.Tk):
@@ -68,7 +69,7 @@ class ESPDevLinkGUI(tk.Tk):
         style.theme_use("clam")
         style.configure(
             "TProgressbar",
-            troughcolor="#0b1420",
+            troughcolor="#07090e",
             background=BLUE,
             bordercolor="#0b1420",
             lightcolor=BLUE,
@@ -84,7 +85,7 @@ class ESPDevLinkGUI(tk.Tk):
             font=("Segoe UI", 10, "bold"),
             padding=(16, 10),
         )
-        style.map("TButton", background=[("active", "#21466d")])
+        style.map("TButton", background=[("active", "#202a43")])
 
     def _build_ui(self) -> None:
         self._build_header()
@@ -113,7 +114,7 @@ class ESPDevLinkGUI(tk.Tk):
         self._build_footer()
 
     def _build_header(self) -> None:
-        header = tk.Frame(self, bg="#0e1725", height=82)
+        header = tk.Frame(self, bg="#080a0f", height=82)
         header.pack(fill="x")
         header.pack_propagate(False)
 
@@ -121,7 +122,7 @@ class ESPDevLinkGUI(tk.Tk):
         brand.pack(side="left", padx=24, fill="y")
         tk.Label(
             brand,
-            text="🎮",
+            text="▣",
             bg="#0e1725",
             fg=TEXT,
             font=("Segoe UI Emoji", 25),
@@ -283,15 +284,15 @@ class ESPDevLinkGUI(tk.Tk):
         actions = tk.Frame(page, bg=BG)
         actions.pack(fill="x", padx=26, pady=(0, 12))
         self.dashboard_start = ttk.Button(
-            actions, text="▶  Start Host", style="Accent.TButton", command=self.start_host
+            actions, text="▶  START HOST", style="Accent.TButton", command=self.start_host
         )
         self.dashboard_start.pack(side="left", padx=(0, 8))
         self.dashboard_stop = ttk.Button(
-            actions, text="■  Stop Host", style="Action.TButton", command=self.stop_host
+            actions, text="■  STOP HOST", style="Action.TButton", command=self.stop_host
         )
         self.dashboard_stop.pack(side="left", padx=8)
         ttk.Button(
-            actions, text="↗  Open Web Interface", style="Action.TButton", command=self.open_web
+            actions, text="↗  OPEN WEB INTERFACE", style="Action.TButton", command=self.open_web
         ).pack(side="left", padx=8)
         self.last_update = tk.Label(
             actions, text="Waiting for host...", bg=BG, fg=MUTED, font=("Segoe UI", 9)
@@ -382,7 +383,7 @@ class ESPDevLinkGUI(tk.Tk):
 
         ttk.Button(
             page,
-            text="◉  Run Full Host Diagnostics",
+            text="◉  RUN FULL DIAGNOSTICS",
             style="Accent.TButton",
             command=self.run_diagnostics,
         ).pack(anchor="w", padx=26, pady=16)
@@ -477,8 +478,8 @@ class ESPDevLinkGUI(tk.Tk):
 
         actions = tk.Frame(panel, bg=CARD)
         actions.pack(fill="x", padx=14, pady=(12, 14))
-        ttk.Button(actions, text="Refresh Network Info", command=self.refresh_network_page).pack(side="left")
-        ttk.Button(actions, text="Open ESP32 Interface", command=self.open_esp32).pack(side="left", padx=8)
+        ttk.Button(actions, text="↻  REFRESH NETWORK", command=self.refresh_network_page).pack(side="left")
+        ttk.Button(actions, text="↗  OPEN ESP32 INTERFACE", command=self.open_esp32).pack(side="left", padx=8)
 
         note = self._panel(page, "NETWORK NOTES")
         note.pack(fill="x", padx=26, pady=18)
@@ -508,10 +509,10 @@ class ESPDevLinkGUI(tk.Tk):
 
         actions = tk.Frame(panel, bg=CARD)
         actions.pack(fill="x", padx=14, pady=(8, 14))
-        ttk.Button(actions, text="Schedule Daily Start", style="Accent.TButton",
+        ttk.Button(actions, text="◷  SCHEDULE DAILY START", style="Accent.TButton",
                    command=self.schedule_host).pack(side="left")
-        ttk.Button(actions, text="Cancel Schedule", command=self.cancel_schedule).pack(side="left", padx=8)
-        ttk.Button(actions, text="Show Schedule", command=self.show_schedule).pack(side="left")
+        ttk.Button(actions, text="■  CANCEL SCHEDULE", command=self.cancel_schedule).pack(side="left", padx=8)
+        ttk.Button(actions, text="◉  SHOW SCHEDULE", command=self.show_schedule).pack(side="left")
 
         self.schedule_output = tk.Text(panel, height=8, bg="#08111b", fg="#b9c9da",
                                        relief="flat", font=("Consolas", 9), wrap="word")
@@ -537,10 +538,10 @@ class ESPDevLinkGUI(tk.Tk):
             self.stream_control_vars[key] = self._info_row(panel, label, "—")
         actions = tk.Frame(panel, bg=CARD)
         actions.pack(fill="x", padx=14, pady=(12, 14))
-        ttk.Button(actions, text="Start Stream", style="Accent.TButton",
+        ttk.Button(actions, text="▶  START STREAM", style="Accent.TButton",
                    command=self.start_stream).pack(side="left")
-        ttk.Button(actions, text="Stop Stream", command=self.stop_stream).pack(side="left", padx=8)
-        ttk.Button(actions, text="Refresh", command=self.refresh_stream_page).pack(side="left")
+        ttk.Button(actions, text="■  STOP STREAM", command=self.stop_stream).pack(side="left", padx=8)
+        ttk.Button(actions, text="↻  REFRESH", command=self.refresh_stream_page).pack(side="left")
 
         panel2 = self._panel(page, "WEBRTC")
         panel2.pack(fill="x", padx=26, pady=18)
@@ -551,7 +552,7 @@ class ESPDevLinkGUI(tk.Tk):
         self.refresh_stream_page()
 
     def _build_footer(self) -> None:
-        footer = tk.Frame(self, bg="#0e1725", height=30)
+        footer = tk.Frame(self, bg="#080a0f", height=30)
         footer.pack(fill="x")
         footer.pack_propagate(False)
         self.footer_status = tk.Label(
@@ -626,7 +627,7 @@ class ESPDevLinkGUI(tk.Tk):
         self.pages[name].pack(fill="both", expand=True)
         for button_name, button in self.nav_buttons.items():
             button.configure(
-                bg="#174c84" if button_name == name else SIDEBAR,
+                bg="#1a1f35" if button_name == name else SIDEBAR,
                 fg=TEXT if button_name == name else MUTED,
             )
 
