@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import urllib.request
+import urllib.error
 import webbrowser
 from collections import deque
 from pathlib import Path
@@ -23,6 +24,7 @@ class HostControlAPI:
         self.processes = []
         self.output_lines = deque(maxlen=3000)
         self.output_lock = threading.Lock()
+        self.host_session = ""
 
     def _python(self):
         p = ROOT / ".venv" / "Scripts" / "python.exe"
@@ -153,16 +155,48 @@ class HostControlAPI:
             return self._post("/api/host/stream/stop", "Stop stream")
         return f"Unknown action: {name}"
 
+    def _ensure_host_session(self):
+        if self.host_session:
+            return self.host_session
+        from .config import AUTHORIZATION_CODE
+        payload = json.dumps({"code": AUTHORIZATION_CODE, "client_id": "host-control-center"}).encode("utf-8")
+        request = urllib.request.Request(
+            HOST_URL + "/api/auth",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=3) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        if not result.get("ok") or not result.get("session_id"):
+            raise RuntimeError(result.get("error", "Host authorization failed"))
+        self.host_session = str(result["session_id"])
+        return self.host_session
+
     def _post(self, path, label):
         try:
+            session = self._ensure_host_session()
             request = urllib.request.Request(
                 HOST_URL + path,
                 data=b"{}",
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "X-ESPLink-Host-Session": session,
+                },
                 method="POST",
             )
             with urllib.request.urlopen(request, timeout=3) as response:
                 result = f"{label}: {response.read().decode('utf-8')}"
+            self._append_output(result)
+            return result
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401:
+                self.host_session = ""
+                try:
+                    return self._post(path, label)
+                except Exception:
+                    pass
+            result = f"{label} failed: {exc}"
             self._append_output(result)
             return result
         except Exception as exc:
