@@ -107,6 +107,7 @@ class ESPDevLinkGUI(tk.Tk):
         self._build_connection_page()
         self._build_network_page()
         self._build_scheduler_page()
+        self._build_streaming_page()
         self.show_page("Dashboard")
 
         self._build_footer()
@@ -167,6 +168,7 @@ class ESPDevLinkGUI(tk.Tk):
             ("Connection", "⇄"),
             ("Network", "⌁"),
             ("Scheduler", "◷"),
+            ("Streaming", "▶"),
         ):
             button = tk.Button(
                 self.sidebar,
@@ -517,6 +519,37 @@ class ESPDevLinkGUI(tk.Tk):
         self.schedule_output.insert("end", "No schedule query run yet.\n")
         self.schedule_output.configure(state="disabled")
 
+    def _build_streaming_page(self) -> None:
+        page = tk.Frame(self.content, bg=BG)
+        self.pages["Streaming"] = page
+
+        tk.Label(page, text="Streaming", bg=BG, fg=TEXT,
+                 font=("Segoe UI", 22, "bold")).pack(anchor="w", padx=26, pady=(24, 4))
+        tk.Label(page, text="Monitor the active WebRTC stream and control its lifecycle.",
+                 bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", padx=26, pady=(0, 18))
+
+        panel = self._panel(page, "STREAM CONTROL")
+        panel.pack(fill="x", padx=26)
+        self.stream_control_vars = {}
+        for key, label in (("state", "State"), ("game", "Game"), ("quality", "Quality"),
+                           ("fps", "FPS"), ("resolution", "Resolution"), ("bitrate", "Bitrate"),
+                           ("health", "Health")):
+            self.stream_control_vars[key] = self._info_row(panel, label, "—")
+        actions = tk.Frame(panel, bg=CARD)
+        actions.pack(fill="x", padx=14, pady=(12, 14))
+        ttk.Button(actions, text="Start Stream", style="Accent.TButton",
+                   command=self.start_stream).pack(side="left")
+        ttk.Button(actions, text="Stop Stream", command=self.stop_stream).pack(side="left", padx=8)
+        ttk.Button(actions, text="Refresh", command=self.refresh_stream_page).pack(side="left")
+
+        panel2 = self._panel(page, "WEBRTC")
+        panel2.pack(fill="x", padx=26, pady=18)
+        self.webrtc_vars = {}
+        for key, label in (("peer", "Peer"), ("connection", "Connection"), ("ice", "ICE"),
+                           ("audio", "Audio"), ("input", "Input")):
+            self.webrtc_vars[key] = self._info_row(panel2, label, "—")
+        self.refresh_stream_page()
+
     def _build_footer(self) -> None:
         footer = tk.Frame(self, bg="#0e1725", height=30)
         footer.pack(fill="x")
@@ -780,6 +813,52 @@ class ESPDevLinkGUI(tk.Tk):
         except queue.Empty:
             pass
         self.after(100, self._poll_output)
+
+    def _host_request_json(self, path: str, method: str = "GET") -> dict:
+        request = urllib.request.Request(HOST_URL.rstrip("/") + path, method=method)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def refresh_stream_page(self) -> None:
+        try:
+            status = self._host_request_json("/api/status")
+            health = self._host_request_json("/api/host/health")
+            host = status.get("host", {})
+            stream = status.get("stream", {})
+            runtime = stream.get("runtime", {}) if isinstance(stream, dict) else {}
+            quality = runtime.get("quality", {}) if isinstance(runtime, dict) else {}
+            health_data = runtime.get("health", {}) if isinstance(runtime, dict) else {}
+            state = str(host.get("stream") or stream.get("state") or "stopped")
+            values = {
+                "state": state.title(),
+                "game": str(host.get("game") or "Desktop"),
+                "quality": str(quality.get("preset") or quality.get("profile") or "Auto"),
+                "fps": str(quality.get("fps", quality.get("frame_rate", "—"))),
+                "resolution": str(quality.get("resolution", "—")),
+                "bitrate": str(quality.get("bitrate", "—")),
+                "health": "OK" if health_data else "No runtime data",
+            }
+            for key, value in values.items():
+                self.stream_control_vars[key].set(value)
+            self.webrtc_vars["peer"].set(str(status.get("webrtc", {}).get("peer_id", "—")) if isinstance(status.get("webrtc"), dict) else "—")
+            self.webrtc_vars["connection"].set(str(status.get("webrtc", {}).get("connection_state", "—")) if isinstance(status.get("webrtc"), dict) else "—")
+            self.webrtc_vars["ice"].set(str(status.get("webrtc", {}).get("ice_state", "—")) if isinstance(status.get("webrtc"), dict) else "—")
+            self.webrtc_vars["audio"].set("Enabled" if status.get("audio", {}).get("enabled") else "—" if not isinstance(status.get("audio"), dict) else str(status.get("audio", {}).get("error") or "Disabled"))
+            self.webrtc_vars["input"].set("Enabled" if status.get("input", {}).get("enabled") else "Disabled")
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError, AttributeError) as exc:
+            for var in self.stream_control_vars.values():
+                var.set("Offline")
+            for var in self.webrtc_vars.values():
+                var.set("Unavailable")
+            self._log(f"Streaming monitor unavailable: {exc}")
+
+    def start_stream(self) -> None:
+        self._start_process([PYTHON, "-c", "from host.api import HostAPI; print(HostAPI().start_stream())"],
+                            "Starting stream")
+
+    def stop_stream(self) -> None:
+        self._start_process([PYTHON, "-c", "from host.api import HostAPI; print(HostAPI().stop_stream())"],
+                            "Stopping stream")
 
     def _schedule_command(self, args: list[str], label: str) -> None:
         self._start_process(args, label)
