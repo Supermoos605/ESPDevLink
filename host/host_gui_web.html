@@ -1,36 +1,170 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ESPDevLink Host</title><style>
-:root{--bg:#07090d;--panel:#0b0e14;--panel2:#0e121a;--line:#202634;--text:#edf1f7;--muted:#7f8ba3;--purple:#8b5cf6;--blue:#687cff;--green:#49e39b;--red:#ff6475}
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Consolas,"Cascadia Mono","Segoe UI Mono",monospace}
-body:before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 72% 0%,#713cff18 0,transparent 34%),radial-gradient(circle at 100% 100%,#9257ff0d 0,transparent 30%)}
-.app{height:100vh;display:flex;flex-direction:column}.top{height:58px;flex:none;display:flex;align-items:center;padding:0 22px;background:#0a0d13;border-bottom:1px solid var(--line);position:relative}
-.top h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.2px}.top p{font-size:12px;color:var(--muted);margin:0 0 0 18px}.top-status{margin-left:auto;font-size:12px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:8px}.dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 12px currentColor}
-.glow{position:absolute;width:170px;height:170px;border-radius:50%;filter:blur(50px);opacity:.12;pointer-events:none}.g1{right:180px;top:-120px;background:#6d4cff}.g2{right:-50px;top:-40px;background:#9257ff}
-.content{padding:22px;overflow:auto;flex:1}.page{display:none;max-width:1100px}.page.active{display:block}.hero{font-size:12px;color:var(--muted);margin:0 0 14px}.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}.card{background:linear-gradient(180deg,#0d1118,#0a0e14);border:1px solid var(--line);border-radius:9px;padding:17px;box-shadow:0 10px 35px #0005}.card h2{font-size:11px;color:#a5b0c4;font-weight:700;margin:0 0 14px;text-transform:uppercase;letter-spacing:.08em}.row{display:flex;justify-content:space-between;gap:20px;padding:6px 0;font-size:12px;border-bottom:1px solid #ffffff05}.row:last-child{border-bottom:0}.row span:first-child{color:#7f8ba3}.row span:last-child{color:#edf1f7;text-align:right}
-.actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.btn{height:38px;padding:0 15px;border-radius:8px;color:#cbd3e1;background:#111620;border:1px solid #293142;font:700 11px Consolas,"Cascadia Mono",monospace;cursor:pointer;transition:transform .08s ease,box-shadow .12s ease,background .12s ease,border-color .12s ease}
-.btn:hover{background:#181e2b;border-color:#414c63;color:#fff}.btn:active,.btn.pressed{transform:translateY(2px) scale(.975);box-shadow:inset 0 2px 5px #0008,0 0 0 1px #9257ff55}.btn.primary{background:linear-gradient(135deg,#625de8,#9257ff);color:#fff;border-color:#a88bff66;box-shadow:0 5px 20px #754dff22}.btn.primary:hover{filter:brightness(1.08)}.btn.primary:active,.btn.primary.pressed{box-shadow:inset 0 3px 7px #0008,0 0 18px #9257ff55}.btn.danger{color:#ff9aa7}
-.console{background:#05070a;border:1px solid #202634;border-radius:8px;padding:14px;height:330px;overflow:auto;font:12px Consolas,"Cascadia Mono",monospace;color:#aeb8c8;white-space:pre-wrap;box-shadow:inset 0 0 35px #0008}.console:after{content:"";display:inline-block;width:7px;height:14px;margin-left:4px;background:#8b5cf6;vertical-align:-2px;animation:blink 1s steps(1) infinite}@keyframes blink{50%{opacity:0}}
-.field{display:flex;gap:10px;align-items:center;margin:10px 0}.field label{width:130px;color:#8f9bb1;font-size:12px}.field input,.field select{flex:1;background:#080b10;color:#e8ecf4;border:1px solid #293142;border-radius:7px;padding:9px 11px;outline:none;font:12px Consolas,"Cascadia Mono",monospace}.field input:focus,.field select:focus{border-color:#8b5cf6;box-shadow:0 0 0 2px #8b5cf620}.notice{padding:11px 13px;border:1px solid #202634;background:#0b0f15;border-radius:8px;color:#7f8ba3;font-size:12px;line-height:1.5;margin-bottom:12px}
-.quick{display:none}
-@media(max-width:900px){.cards{grid-template-columns:1fr}.content{padding:16px}}
-</style><style>.navcmd{background:transparent;border:1px solid transparent;color:#66738b;border-radius:5px;padding:4px 7px;font:11px Consolas,monospace;cursor:pointer}.navcmd:hover{color:#fff;background:#ffffff08}.navcmd.active{color:#fff;border-color:#333b4d;background:#151a24}</style></head><body><div class="app"><aside style="display:none"></aside><main class="main"><header class="top"><div class="glow g1"></div><div class="glow g2"></div><h1 id="title">Dashboard</h1><p id="subtitle">Live ESPDevLink host overview</p><div class="top-status" id="topStatus"><span class="dot"></span> HOST STOPPED</div></header><div id="commandbar" style="height:38px;display:flex;align-items:center;gap:7px;padding:0 22px;border-bottom:1px solid #202634;background:#080b10;color:#7f8ba3;font:12px Consolas,monospace"><span style="color:#9257ff">ESPDevLink</span><span style="color:#465066">›</span><span id="cmd">dashboard</span><span style="color:#9257ff">_</span><div style="margin-left:auto;display:flex;gap:4px"><button class="navcmd" data-page="dashboard">dashboard</button><button class="navcmd" data-page="operations">operations</button><button class="navcmd" data-page="diagnostics">diagnostics</button><button class="navcmd" data-page="connection">connection</button><button class="navcmd" data-page="network">network</button><button class="navcmd" data-page="scheduler">scheduler</button><button class="navcmd" data-page="streaming">streaming</button></div></div><section class="content">
-<div class="page active" id="dashboard"><p class="hero">Windows host status, connection state, and stream health in one place.</p><div class="cards"><div class="card"><h2>Connection &amp; Host</h2><div class="row"><span>Connection Mode</span><span id="mode">—</span></div><div class="row"><span>Computer</span><span id="computer">—</span></div><div class="row"><span>Host IP</span><span id="ip">—</span></div><div class="row"><span>mDNS</span><span id="mdns">—</span></div><div class="row"><span>Game</span><span id="game">—</span></div><div class="row"><span>Host Uptime</span><span id="uptime">—</span></div></div><div class="card"><h2>Stream Health</h2><div class="row"><span>State</span><span id="streamState">—</span></div><div class="row"><span>Quality</span><span id="quality">—</span></div><div class="row"><span>FPS</span><span id="fps">—</span></div><div class="row"><span>Resolution</span><span id="resolution">—</span></div><div class="row"><span>Bitrate</span><span id="bitrate">—</span></div><div class="row"><span>Health</span><span id="health">—</span></div></div></div><div class="actions"><button class="btn primary" onclick="runAction('start')">▶&nbsp; START HOST</button><button class="btn" onclick="runAction('stop')">■&nbsp; STOP HOST</button><button class="btn" onclick="openWeb()">↗&nbsp; OPEN WEB INTERFACE</button></div></div>
-<div class="page" id="operations"><p class="hero">Launch and manage the existing ESPDevLink host tools.</p><div class="card"><h2>Host Operations</h2><div class="actions"><button class="btn primary" onclick="runAction('start')">▶&nbsp; START HOST SERVER</button><button class="btn" onclick="runAction('stop')">■&nbsp; STOP CURRENT PROCESS</button><button class="btn" onclick="runAction('heartbeat')">♥&nbsp; NETWORK HEARTBEAT</button><button class="btn" onclick="runAction('simulator')">▣&nbsp; START SIMULATOR</button><button class="btn" onclick="openWeb()">↗&nbsp; OPEN WEB INTERFACE</button><button class="btn" onclick="runAction('diagnostics')">◉&nbsp; FULL DIAGNOSTICS</button><button class="btn" onclick="runAction('tests')">▶&nbsp; RUN TESTS</button><button class="btn" onclick="runAction('deps')">↓&nbsp; INSTALL DEPENDENCIES</button><button class="btn" onclick="runAction('venv')">◷&nbsp; CREATE VIRTUAL ENVIRONMENT</button></div></div><div style="height:12px"></div><div class="console" id="console">Ready.</div></div>
-<div class="page" id="diagnostics"><p class="hero">Live diagnostics from the running Windows host.</p><div class="card"><h2>Host Diagnostics</h2><div class="console" id="diag">Waiting for host...</div></div></div>
-<div class="page" id="connection"><p class="hero">Select how the host should expose the ESPDevLink connection.</p><div class="card"><h2>Connection Mode</h2><div class="field"><label>Mode</label><select id="connectionMode"><option>AUTOMATIC</option><option>REMOTE</option><option>FORCE_REMOTE</option></select></div><div class="notice">The selected mode is applied when the host server is started. The ESP32 continues to manage its own Wi-Fi connection.</div><div class="actions"><button class="btn primary" onclick="applyMode()">↻&nbsp; APPLY &amp; RESTART HOST</button></div></div></div>
-<div class="page" id="network"><p class="hero">Windows network information. ESP32 Wi-Fi credentials remain on the ESP32.</p><div class="card"><h2>Network</h2><div class="row"><span>Computer</span><span id="nComputer">—</span></div><div class="row"><span>LAN Address</span><span id="nIp">—</span></div><div class="row"><span>mDNS</span><span id="nMdns">—</span></div><div class="row"><span>ESP32 Interface</span><span>steamlink.local</span></div><div class="actions"><button class="btn" onclick="refresh()">↻&nbsp; REFRESH NETWORK</button><button class="btn" onclick="openEsp()">↗&nbsp; OPEN ESP32 INTERFACE</button></div></div></div>
-<div class="page" id="scheduler"><p class="hero">Start the Windows host automatically each day.</p><div class="card"><h2>Daily Start</h2><div class="field"><label>Start time</label><input id="scheduleTime" placeholder="HH:MM" value="08:00"></div><div class="actions"><button class="btn primary" onclick="schedule()">◷&nbsp; SCHEDULE DAILY START</button><button class="btn" onclick="cancelSchedule()">■&nbsp; CANCEL SCHEDULE</button><button class="btn" onclick="showSchedule()">◉&nbsp; SHOW SCHEDULE</button></div><div style="height:12px"></div><div class="console" id="scheduleOut">No schedule query run yet.</div></div></div>
-<div class="page" id="streaming"><p class="hero">Monitor and control the active WebRTC stream.</p><div class="cards"><div class="card"><h2>Streaming</h2><div class="row"><span>State</span><span id="sState">—</span></div><div class="row"><span>Game</span><span id="sGame">—</span></div><div class="row"><span>Quality</span><span id="sQuality">—</span></div><div class="row"><span>FPS</span><span id="sFps">—</span></div><div class="row"><span>Resolution</span><span id="sResolution">—</span></div><div class="row"><span>Bitrate</span><span id="sBitrate">—</span></div></div><div class="card"><h2>WebRTC</h2><div class="row"><span>Peer</span><span id="peer">—</span></div><div class="row"><span>Connection</span><span id="rtc">—</span></div><div class="row"><span>ICE</span><span id="ice">—</span></div><div class="row"><span>Audio</span><span id="audio">—</span></div><div class="row"><span>Input</span><span id="input">—</span></div></div></div><div class="actions"><button class="btn primary" onclick="runAction('streamStart')">▶&nbsp; START STREAM</button><button class="btn danger" onclick="runAction('streamStop')">■&nbsp; STOP STREAM</button><button class="btn" onclick="refresh()">↻&nbsp; REFRESH</button></div></div>
-</section></main></div><script>
-const titles={dashboard:["Dashboard","Live ESPDevLink host overview"],operations:["Operations","Host process controls and tools"],diagnostics:["Diagnostics","Live host diagnostics"],connection:["Connection","Connection mode configuration"],network:["Network","Windows and ESP32 network information"],scheduler:["Scheduler","Automatic host startup"],streaming:["Streaming","WebRTC stream monitor"]};
-document.querySelectorAll(".navcmd").forEach(n=>n.onclick=()=>{document.querySelectorAll(".navcmd").forEach(x=>x.classList.remove("active"));n.classList.add("active");document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));document.getElementById(n.dataset.page).classList.add("active");document.getElementById("title").textContent=titles[n.dataset.page][0];document.getElementById("subtitle").textContent=titles[n.dataset.page][1];document.getElementById("cmd").textContent=n.dataset.page});document.querySelector(".navcmd").classList.add("active");
-function log(x){const c=document.getElementById("console");c.textContent=c.textContent+"\n"+new Date().toLocaleTimeString()+"  "+x;c.scrollTop=c.scrollHeight}
-async function runAction(a){try{log(await pywebview.api.action(a));refresh()}catch(e){log("ERROR: "+e)}}
-async function openWeb(){try{log(await pywebview.api.open_web())}catch(e){log("ERROR: "+e)}}
-async function openEsp(){try{log(await pywebview.api.open_esp32())}catch(e){log("ERROR: "+e)}}
-async function applyMode(){try{log(await pywebview.api.set_mode(document.getElementById("connectionMode").value))}catch(e){log("ERROR: "+e)}}
-async function schedule(){try{log(await pywebview.api.schedule(document.getElementById("scheduleTime").value))}catch(e){log("ERROR: "+e)}}
-async function cancelSchedule(){try{log(await pywebview.api.cancel_schedule())}catch(e){log("ERROR: "+e)}}
-async function showSchedule(){try{document.getElementById("scheduleOut").textContent=await pywebview.api.show_schedule()}catch(e){document.getElementById("scheduleOut").textContent="ERROR: "+e}}
-async function refresh(){try{const r=await pywebview.api.status(),h=r.host||{},s=r.stream||{},n=r.network||{};const set=(id,v)=>document.getElementById(id).textContent=v??"—";set("computer",r.computer||n.hostname);set("ip",r.ip||n.ip);set("mdns",r.mdns||n.mdns);set("mode",r.mode);set("game",h.game||s.game);set("uptime",h.uptime_seconds!=null?Math.floor(h.uptime_seconds)+"s":null);set("streamState",s.state||h.stream_state);set("quality",s.quality);set("fps",s.fps);set("resolution",s.resolution);set("bitrate",s.bitrate);set("health",s.health||h.stream_health);set("nComputer",r.computer||n.hostname);set("nIp",r.ip||n.ip);set("nMdns",r.mdns||n.mdns);set("sState",s.state||h.stream_state);set("sGame",s.game||h.game);set("sQuality",s.quality);set("sFps",s.fps);set("sResolution",s.resolution);set("sBitrate",s.bitrate);set("peer",s.peer);set("rtc",s.connection_state);set("ice",s.ice_state);set("audio",s.audio);set("input",s.input);const running=!!r.host_online;const ts=document.getElementById("topStatus");ts.innerHTML="<span class='dot'></span> "+(running?"HOST ONLINE":"HOST STOPPED");ts.style.color=running?"var(--green)":"var(--red)"}catch(e){document.getElementById("topStatus").innerHTML="<span class='dot'></span> HOST STOPPED"}}
-document.addEventListener("click",e=>{const b=e.target.closest(".btn");if(!b)return;b.classList.add("pressed");setTimeout(()=>b.classList.remove("pressed"),140)});window.addEventListener("keydown",e=>{if(e.key==="Escape")document.querySelector(".navcmd.active")?.focus()});window.addEventListener("pywebviewready",()=>{refresh();setInterval(refresh,2000)});
-</script></body></html>
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ESPDevLink Host</title>
+<style>
+:root{--bg:#050505;--text:#f2f2f2;--muted:#9a9a9a;--accent:#b56cff;--line:#252525}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
+body{font-family:Consolas,monospace;font-size:15px}
+button,input,select{font-family:Consolas,monospace}
+.app{height:100vh;padding:26px 30px}
+.terminal{height:100%;max-width:1050px;margin:auto;display:flex;flex-direction:column}
+.header{border-bottom:1px solid var(--line);padding-bottom:13px;margin-bottom:22px}
+.header .name{font-size:18px;font-weight:bold}
+.header .sub{color:var(--muted);font-size:13px;margin-top:5px}
+.page{display:none;flex:1;overflow:auto}
+.page.active{display:block}
+.prompt{color:#ddd;margin-bottom:18px}
+.prompt b{color:var(--accent)}
+.menu{display:flex;flex-direction:column;gap:7px;max-width:620px}
+.option{display:block;width:100%;text-align:left;background:none;border:0;color:#eee;padding:5px 0;font-size:15px;cursor:pointer}
+.option:hover{color:#fff;text-decoration:underline}
+.option:active{transform:translateX(3px)}
+.number{display:inline-block;width:32px;color:var(--accent)}
+.output{white-space:pre-wrap;color:#c8c8c8;line-height:1.55;max-width:900px}
+.output .label{color:#888}
+.actions{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
+.action{background:none;border:1px solid #444;color:#eee;padding:8px 14px;cursor:pointer;font-size:14px}
+.action:hover{border-color:#888;background:#111}
+.action:active{transform:translateY(2px)}
+.field{margin:12px 0;display:flex;align-items:center;gap:14px}
+.field label{width:110px;color:#aaa}
+.field input,.field select{background:#080808;color:#eee;border:1px solid #444;padding:8px;font-size:14px;outline:none}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.cursor{display:inline-block;width:8px;height:16px;background:var(--accent);vertical-align:-3px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.status{margin-left:auto;font-size:13px;color:#9a9a9a}
+.status.online{color:#67e8a5}
+.back{margin-top:28px;color:#aaa;background:none;border:0;padding:0;font-size:14px;cursor:pointer}
+.back:hover{color:#fff;text-decoration:underline}
+@media(max-width:700px){.app{padding:18px}.field{align-items:flex-start;flex-direction:column;gap:6px}.field label{width:auto}}
+</style>
+</head>
+<body>
+<div class="app"><div class="terminal">
+<header class="header"><div class="name">ESPDevLink Host Control Center</div><div class="sub">Windows host management</div></header>
+
+<section class="page active" id="home">
+<div class="prompt"><b>C:\ESPDevLink&gt;</b> Select an option<span class="cursor"></span></div>
+<div class="menu">
+<button class="option" onclick="go('output')"><span class="number">[1]</span>View host status</button>
+<button class="option" onclick="go('operations')"><span class="number">[2]</span>Host operations</button>
+<button class="option" onclick="go('diagnostics')"><span class="number">[3]</span>Run diagnostics</button>
+<button class="option" onclick="go('connection')"><span class="number">[4]</span>Connection mode</button>
+<button class="option" onclick="go('network')"><span class="number">[5]</span>Network information</button>
+<button class="option" onclick="go('scheduler')"><span class="number">[6]</span>Set host start time</button>
+<button class="option" onclick="go('streaming')"><span class="number">[7]</span>Streaming status</button>
+<button class="option" onclick="openWeb()"><span class="number">[8]</span>Open web interface</button>
+<button class="option" onclick="openEsp()"><span class="number">[9]</span>Open ESP32 interface</button>
+</div>
+</section>
+
+<section class="page" id="output">
+<div class="prompt"><b>C:\ESPDevLink&gt;</b> Host status</div>
+<div class="output" id="statusOut">Loading...</div>
+<button class="back" onclick="home()">[0] Back to main menu</button>
+</section>
+
+<section class="page" id="operations">
+<div class="prompt"><b>C:\ESPDevLink&gt;</b> Host operations</div>
+<div class="menu">
+<button class="option" onclick="runAction('start')"><span class="number">[1]</span>Start host server</button>
+<button class="option" onclick="runAction('stop')"><span class="number">[2]</span>Stop tracked host processes</button>
+<button class="option" onclick="runAction('heartbeat')"><span class="number">[3]</span>Start network heartbeat</button>
+<button class="option" onclick="runAction('simulator')"><span class="number">[4]</span>Start simulator</button>
+<button class="option" onclick="runAction('tests')"><span class="number">[5]</span>Run tests</button>
+<button class="option" onclick="runAction('deps')"><span class="number">[6]</span>Install dependencies</button>
+<button class="option" onclick="runAction('venv')"><span class="number">[7]</span>Create virtual environment</button>
+</div>
+<div class="output" id="operationsOut"></div>
+<button class="back" onclick="home()">[0] Back to main menu</button>
+</section>
+
+<section class="page" id="diagnostics">
+<div class="prompt"><b>C:\ESPDevLink&gt;</b> Diagnostics</div>
+<div class="output" id="diagnosticsOut">Select "Run diagnostics" below.</div>
+<div class="actions"><button class="action" onclick="runAction('diagnostics')">Run diagnostics</button></div>
+<button class="back" onclick="home()">[0] Back to main menu</button>
+</section>
+
+<section class="page" id="connection">
+<div class="prompt"><b>C:\ESPDevLink&gt;</b> Connection mode</div>
+<div class="field"><label>Mode:</label><select id="connectionMode"><option>AUTOMATIC</option><option>REMOTE</option><option>FORCE_REMOTE</option></select></div>
+<div class="actions"><button class="action" onclick="applyMode()">Apply and restart host</button></div>
+<div class="output" id="connectionOut"></div>
+<button class="back" onclick="home()">[0] Back to main menu</button>
+</section>
+
+<section class="page" id="network">
+<div class="prompt"><b>C:\ESPDevLink&gt;</b> Network information</div>
+<div class="output" id="networkOut">Loading...</div>
+<div class="actions"><button class="action" onclick="refresh()">Refresh</button><button class="action" onclick="openEsp()">Open ESP32 interface</button></div>
+<button class="back" onclick="home()">[0] Back to main menu</button>
+</section>
+
+<section class="page" id="scheduler">
+<div class="prompt"><b>C:\ESPDevLink&gt;</b> Set host start time</div>
+<div class="output">Choose the time when Windows should start the ESPDevLink host each day.</div>
+<div class="field"><label>Time:</label><input id="scheduleTime" type="time" value="08:00"></div>
+<div class="actions"><button class="action" onclick="schedule()">Set daily start time</button><button class="action" onclick="showSchedule()">Show current schedule</button><button class="action" onclick="cancelSchedule()">Cancel schedule</button></div>
+<div class="output" id="scheduleOut"></div>
+<button class="back" onclick="home()">[0] Back to main menu</button>
+</section>
+
+<section class="page" id="streaming">
+<div class="prompt"><b>C:\ESPDevLink&gt;</b> Streaming status</div>
+<div class="output" id="streamOut">Loading...</div>
+<div class="actions"><button class="action" onclick="runAction('streamStart')">Start stream</button><button class="action" onclick="runAction('streamStop')">Stop stream</button><button class="action" onclick="refresh()">Refresh</button></div>
+<button class="back" onclick="home()">[0] Back to main menu</button>
+</section>
+
+</div></div>
+<script>
+const pages=["home","output","operations","diagnostics","connection","network","scheduler","streaming"];
+function go(id){pages.forEach(x=>document.getElementById(x).classList.remove("active"));document.getElementById(id).classList.add("active");if(id==="output"||id==="network"||id==="streaming")refresh()}
+function home(){go("home")}
+function text(id,v){document.getElementById(id).textContent=v??"—"}
+async function runAction(a){const target=a==="diagnostics"?"diagnosticsOut":a==="streamStart"||a==="streamStop"?"streamOut":"operationsOut";try{text(target,await pywebview.api.action(a));refresh()}catch(e){text(target,"ERROR: "+e)}}
+async function openWeb(){try{text("operationsOut",await pywebview.api.open_web())}catch(e){}}
+async function openEsp(){try{text("operationsOut",await pywebview.api.open_esp32())}catch(e){}}
+async function applyMode(){try{text("connectionOut",await pywebview.api.set_mode(document.getElementById("connectionMode").value))}catch(e){text("connectionOut","ERROR: "+e)}}
+async function schedule(){try{text("scheduleOut",await pywebview.api.schedule(document.getElementById("scheduleTime").value))}catch(e){text("scheduleOut","ERROR: "+e)}}
+async function cancelSchedule(){try{text("scheduleOut",await pywebview.api.cancel_schedule())}catch(e){text("scheduleOut","ERROR: "+e)}}
+async function showSchedule(){try{text("scheduleOut",await pywebview.api.show_schedule())}catch(e){text("scheduleOut","ERROR: "+e)}}
+async function refresh(){
+try{
+const r=await pywebview.api.status(),h=r.host||{},s=r.stream||{},n=r.network||{};
+const online=!!r.host_online;
+const status=[
+"Host: "+(online?"ONLINE":"STOPPED"),
+"Computer: "+(r.computer||n.hostname||"—"),
+"IP address: "+(r.ip||n.ip||"—"),
+"mDNS: "+(r.mdns||n.mdns||"—"),
+"Connection mode: "+(r.mode||"—"),
+"Game: "+(h.game||s.game||"—"),
+"Uptime: "+(h.uptime_seconds!=null?Math.floor(h.uptime_seconds)+"s":"—")
+].join("\n");
+text("statusOut",status);
+text("networkOut",[
+"Computer: "+(r.computer||n.hostname||"—"),
+"LAN address: "+(r.ip||n.ip||"—"),
+"mDNS: "+(r.mdns||n.mdns||"—"),
+"ESP32: steamlink.local"
+].join("\n"));
+text("streamOut",[
+"State: "+(s.state||h.stream_state||"—"),
+"Game: "+(s.game||h.game||"—"),
+"Quality: "+(s.quality||"—"),
+"FPS: "+(s.fps||"—"),
+"Resolution: "+(s.resolution||"—"),
+"Bitrate: "+(s.bitrate||"—"),
+"Health: "+(s.health||h.stream_health||"—")
+].join("\n"));
+}catch(e){text("statusOut","Unable to contact host.");text("networkOut","Unable to read network information.");text("streamOut","Unable to contact host.")}}
+window.addEventListener("pywebviewready",()=>{refresh();setInterval(refresh,2000)})
+</script>
+</body>
+</html>
