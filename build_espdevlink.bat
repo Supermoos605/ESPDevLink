@@ -8,33 +8,40 @@ echo   ESPDevLink Windows App Builder
 echo ==========================================
 echo.
 
-set "PY="
-if exist ".venv\Scripts\python.exe" set "PY=%CD%\.venv\Scripts\python.exe"
+rem Keep the Python executable and its arguments separate so paths containing
+rem spaces work correctly.
+set "PYTHON="
+set "PYTHON_ARGS="
 
-if not defined PY (
+if exist ".venv\Scripts\python.exe" (
+    set "PYTHON=%CD%\.venv\Scripts\python.exe"
+) else (
     where py >nul 2>&1
-    if not errorlevel 1 set "PY=py -3"
+    if not errorlevel 1 (
+        set "PYTHON=py"
+        set "PYTHON_ARGS=-3"
+    )
 )
 
-if not defined PY (
+if not defined PYTHON (
     where python >nul 2>&1
-    if not errorlevel 1 set "PY=python"
+    if not errorlevel 1 set "PYTHON=python"
 )
 
-if not defined PY (
+if not defined PYTHON (
     echo Python 3 was not found.
     echo Install Python 3, then run this file again.
     pause
     exit /b 1
 )
 
-echo Using Python: %PY%
+echo Using Python: "%PYTHON%" %PYTHON_ARGS%
 echo.
 
-%PY% -m PyInstaller --version >nul 2>&1
+"%PYTHON%" %PYTHON_ARGS% -m PyInstaller --version >nul 2>&1
 if errorlevel 1 (
     echo Installing PyInstaller...
-    %PY% -m pip install "pyinstaller>=6,<7"
+    "%PYTHON%" %PYTHON_ARGS% -m pip install "pyinstaller>=6,<7"
     if errorlevel 1 (
         echo Failed to install PyInstaller.
         pause
@@ -42,28 +49,42 @@ if errorlevel 1 (
     )
 )
 
-if not exist "data\espdevlink.ico" (
+if not exist "%CD%\data\espdevlink.ico" (
     echo Missing data\espdevlink.ico.
     echo The project icon is required to build the Windows app.
     pause
     exit /b 1
 )
 
+if not exist "%CD%\host\host_gui_web.html" (
+    echo Missing host\host_gui_web.html.
+    echo The control-center HTML file is required to build the Windows app.
+    pause
+    exit /b 1
+)
+
+if not exist "%CD%\host_gui_entry.py" (
+    echo Missing host_gui_entry.py.
+    echo The PyInstaller entry point is required to build the Windows app.
+    pause
+    exit /b 1
+)
+
 echo Building ESPDevLink.exe...
-%PY% -m PyInstaller ^
+"%PYTHON%" %PYTHON_ARGS% -m PyInstaller ^
     --noconfirm ^
     --clean ^
     --onefile ^
     --windowed ^
     --name ESPDevLink ^
-    --icon "data\espdevlink.ico" ^
-    --add-data "host\host_gui_web.html;host" ^
-    --add-data "data\espdevlink.ico;data" ^
-    --paths "." ^
-    --distpath "bin" ^
-    --workpath "build\pyinstaller" ^
-    --specpath "build" ^
-    "host_gui_entry.py"
+    --icon "%CD%\data\espdevlink.ico" ^
+    --add-data "%CD%\host\host_gui_web.html;host" ^
+    --add-data "%CD%\data\espdevlink.ico;data" ^
+    --paths "%CD%" ^
+    --distpath "%CD%\bin" ^
+    --workpath "%CD%\build\pyinstaller" ^
+    --specpath "%CD%\build" ^
+    "%CD%\host_gui_entry.py"
 
 if errorlevel 1 (
     echo.
