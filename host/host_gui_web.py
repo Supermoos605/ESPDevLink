@@ -1,8 +1,10 @@
 """Browser-rendered ESPDevLink Windows control center."""
 from __future__ import annotations
+import importlib.util
 import json
 import os
 import socket
+import shutil
 import subprocess
 import sys
 import threading
@@ -15,9 +17,17 @@ from pathlib import Path
 import webview
 
 HOST_URL = "http://127.0.0.1:8765"
-ROOT = Path(__file__).resolve().parents[1]
+
+# When bundled, the executable is placed in <project>/bin/, while PyInstaller
+# resources are unpacked under its temporary bundle directory.
+if getattr(sys, "frozen", False):
+    ROOT = Path(sys.executable).resolve().parent.parent
+else:
+    ROOT = Path(__file__).resolve().parents[1]
+
+BUNDLE_ROOT = Path(__file__).resolve().parents[1]
 HTML = Path(__file__).with_name("host_gui_web.html")
-ICON = ROOT / "data" / "espdevlink.ico"
+ICON = BUNDLE_ROOT / "data" / "espdevlink.ico"
 
 
 class HostControlAPI:
@@ -29,7 +39,19 @@ class HostControlAPI:
 
     def _python(self):
         p = ROOT / ".venv" / "Scripts" / "python.exe"
-        return str(p) if p.exists() else sys.executable
+        if p.exists():
+            return str(p)
+
+        # A frozen control center must launch the real host with a Python
+        # interpreter, not by recursively launching the frozen GUI executable.
+        if getattr(sys, "frozen", False):
+            for name in ("py.exe", "python.exe"):
+                found = shutil.which(name)
+                if found:
+                    return found
+            return "python.exe"
+
+        return sys.executable
 
     def _append_output(self, text):
         if not text:
@@ -159,8 +181,27 @@ class HostControlAPI:
     def _ensure_host_session(self):
         if self.host_session:
             return self.host_session
-        from .config import AUTHORIZATION_CODE
-        payload = json.dumps({"code": AUTHORIZATION_CODE, "client_id": "host-control-center"}).encode("utf-8")
+        secrets_path = ROOT / "include" / "espdevlink_secrets.py"
+        if not secrets_path.exists():
+            raise RuntimeError(
+                "Private include/espdevlink_secrets.py was not found. "
+                "Create it from the project example before using host controls."
+            )
+
+        spec = importlib.util.spec_from_file_location(
+            "_espdevlink_runtime_secrets",
+            secrets_path,
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Could not load private ESPDevLink credentials.")
+
+        secrets = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(secrets)
+        authorization_code = str(getattr(secrets, "ACCESS_CODE", "")).strip()
+        if not authorization_code:
+            raise RuntimeError("ACCESS_CODE is missing from include/espdevlink_secrets.py.")
+
+        payload = json.dumps({"code": authorization_code, "client_id": "host-control-center"}).encode("utf-8")
         request = urllib.request.Request(
             HOST_URL + "/api/auth",
             data=payload,
