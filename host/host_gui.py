@@ -217,8 +217,7 @@ class ESPDevLinkGUI(tk.Tk):
         self._build_footer()
 
     def _build_header(self) -> None:
-        header = tk.Frame(self, bg=BG, height=82)
-        header.pack(fill="x")
+        header = tk.Frame(self, bg=BG, height=82)        header.pack(fill="x")
         header.pack_propagate(False)
 
         glow = tk.Canvas(header, bg=BG, bd=0, highlightthickness=0)
@@ -233,13 +232,21 @@ class ESPDevLinkGUI(tk.Tk):
 
         brand = tk.Frame(header, bg=BG)
         brand.pack(side="left", padx=24, fill="y")
-        tk.Label(
-            brand,
-            text="",
-            bg=BG,
-            highlightthickness=0,
-        ).pack(side="left", padx=(0, 12))
-        titles = tk.Frame(brand, bg="#0e1725")
+        self.header_logo = tk.Canvas(brand, width=42, height=42, bg=BG, bd=0, highlightthickness=0)
+        self.header_logo.pack(side="left", padx=(0, 12))
+        # Match the steamlink.local icon: purple gradient tile with a white rounded-square mark.
+        for x in range(2, 40):
+            t = (x - 2) / 37
+            c = SteamButton._mix(BLUE, PURPLE, t)
+            self.header_logo.create_line(x, 2, x, 40, fill=c, width=1)
+        self.header_logo.create_rectangle(2, 8, 40, 34, fill=BLUE, outline=BLUE)
+        self.header_logo.create_arc(2, 2, 40, 40, start=90, extent=90, outline=BLUE, width=8)
+        self.header_logo.create_arc(2, 2, 40, 40, start=0, extent=90, outline=PURPLE, width=8)
+        self.header_logo.create_arc(2, 2, 40, 40, start=180, extent=90, outline=BLUE, width=8)
+        self.header_logo.create_arc(2, 2, 40, 40, start=270, extent=90, outline=PURPLE, width=8)
+        self.header_logo.create_rectangle(12, 12, 30, 30, outline="white", width=3)
+        self.header_logo.create_arc(12, 12, 30, 30, start=0, extent=360, outline="white", width=3)
+        titles = tk.Frame(brand, bg=BG)
         titles.pack(side="left", pady=13)
         tk.Label(
             titles,
@@ -259,7 +266,7 @@ class ESPDevLinkGUI(tk.Tk):
         self.header_status = tk.Label(
             header,
             text="● HOST STOPPED",
-            bg="#0e1725",
+            bg=BG,
             fg=RED,
             font=("Segoe UI", 10, "bold"),
         )
@@ -517,8 +524,7 @@ class ESPDevLinkGUI(tk.Tk):
             fg="#b9c9da",
             insertbackground=TEXT,
             relief="flat",
-            font=("Consolas", 9),
-            wrap="word",
+            font=("Consolas", 9),            wrap="word",
         )
         self.diag_text.pack(fill="both", expand=True)
         self.diag_text.insert("end", "Live health results will appear here.\n")
@@ -998,126 +1004,3 @@ class ESPDevLinkGUI(tk.Tk):
 
     def stop_stream(self) -> None:
         self._post_host_control("/api/host/stream/stop", "Stop stream")
-
-    def _schedule_command(self, args: list[str], label: str) -> None:
-        self._start_process(args, label)
-
-    def schedule_host(self) -> None:
-        time = self.schedule_time.get().strip()
-        import re
-        if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", time):
-            messagebox.showerror("ESPDevLink", "Enter a valid time in HH:MM format, such as 22:30.")
-            return
-        launcher = REPO_ROOT / "start_server.bat"
-        if not launcher.is_file():
-            messagebox.showerror("ESPDevLink", "start_server.bat was not found.")
-            return
-        command = f'"{launcher}" scheduled'
-        self._schedule_command(["schtasks", "/Create", "/TN", "ESPDevLink Host", "/SC", "DAILY",
-                                "/ST", time, "/TR", command, "/RL", "LIMITED", "/F"],
-                               f"Scheduling ESPDevLink daily at {time}")
-        self._log("The Windows Task Scheduler command was started.")
-
-    def cancel_schedule(self) -> None:
-        self._schedule_command(["schtasks", "/Delete", "/TN", "ESPDevLink Host", "/F"],
-                               "Cancelling ESPDevLink schedule")
-
-    def show_schedule(self) -> None:
-        self._start_process(["schtasks", "/Query", "/TN", "ESPDevLink Host", "/FO", "LIST"],
-                            "Reading ESPDevLink schedule")
-
-    def refresh_network_page(self) -> None:
-        try:
-            hostname = socket.gethostname()
-            addresses = socket.getaddrinfo(hostname, None, socket.AF_INET)
-            ips = []
-            for item in addresses:
-                ip = item[4][0]
-                if ip not in ips and not ip.startswith("127."):
-                    ips.append(ip)
-            ip = ", ".join(ips) if ips else "No LAN address found"
-        except OSError as exc:
-            hostname = socket.gethostname()
-            ip = f"Unavailable ({exc})"
-        try:
-            from .config import ESP32_URL
-            esp32_url = ESP32_URL
-        except Exception:
-            esp32_url = "Not configured"
-        mode = self.connection_mode.get().upper()
-        self.network_vars["hostname"].set(hostname)
-        self.network_vars["ip"].set(ip)
-        self.network_vars["mdns"].set(f"{hostname}.local")
-        self.network_vars["esp32"].set(esp32_url)
-        self.network_vars["mode"].set(mode)
-
-    def open_esp32(self) -> None:
-        try:
-            from .config import ESP32_URL
-            url = ESP32_URL
-        except Exception:
-            url = "http://steamlink.local/"
-        webbrowser.open(url)
-        self._log(f"Opened ESP32 interface: {url}")
-
-    def _sync_connection_mode_status(self) -> None:
-        mode = self.connection_mode.get().upper()
-        self.connection_mode_status.set(mode if mode in {"AUTOMATIC", "REMOTE", "FORCE_REMOTE"} else "AUTOMATIC")
-
-    def _mode_url(self) -> str:
-        mode = self.connection_mode.get().upper()
-        if mode == "AUTOMATIC":
-            return HOST_URL
-        return HOST_URL + "?mode=" + mode
-
-    def open_selected_mode(self) -> None:
-        url = self._mode_url()
-        webbrowser.open(url)
-        self._log(f"Opened connection mode: {self.connection_mode.get().upper()}")
-
-    def restart_host_with_mode(self) -> None:
-        if self.process and self.process.poll() is None:
-            self.stop_host()
-        mode = self.connection_mode.get().upper()
-        os.environ["ESPLINK_CONNECTION_MODE"] = mode
-        self._sync_connection_mode_status()
-        self.start_host()
-
-    def start_host(self) -> None:
-        mode = self.connection_mode.get().upper()
-        if mode not in {"AUTOMATIC", "REMOTE", "FORCE_REMOTE"}:
-            mode = "AUTOMATIC"
-        os.environ["ESPLINK_CONNECTION_MODE"] = mode
-        self._sync_connection_mode_status()
-        self._start_process([PYTHON, "-m", "host.host_server"], f"Starting host server ({mode})")
-
-    def start_heartbeat(self) -> None:
-        self._start_process([PYTHON, "-m", "host.network.heartbeat"], "Starting network heartbeat")
-
-    def start_simulator(self) -> None:
-        self._start_process([PYTHON, "simulator/esp_link_simulator.py"], "Starting ESPLink simulator")
-
-    def run_tests(self) -> None:
-        self._start_process([PYTHON, "-m", "pytest"], "Running ESPDevLink tests")
-
-    def install_dependencies(self) -> None:
-        self._start_process(
-            [PYTHON, "-m", "pip", "install", "-r", "requirements.txt"],
-            "Installing host dependencies",
-        )
-
-    def create_venv(self) -> None:
-        if (REPO_ROOT / ".venv" / "Scripts" / "python.exe").exists():
-            messagebox.showinfo("ESPDevLink", "The virtual environment already exists.")
-            return
-        self._start_process([PYTHON, "-m", "venv", ".venv"], "Creating virtual environment")
-
-    def run_diagnostics(self) -> None:
-        self.show_page("Diagnostics")
-        self._start_process([PYTHON, "-m", "host.run_host"], "Running host diagnostics")
-
-    def open_web(self) -> None:
-        webbrowser.open(HOST_URL)
-        self._log(f"Opened {HOST_URL}")
-
-    def stop_host(self) -> None:
