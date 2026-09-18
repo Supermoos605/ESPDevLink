@@ -1004,3 +1004,13 @@ class ESPDevLinkGUI(tk.Tk):
 
     def stop_stream(self) -> None:
         self._post_host_control("/api/host/stream/stop", "Stop stream")
+
+
+def main() -> None:
+    """Launch the ESPDevLink desktop control center."""
+    app = ESPDevLinkGUI()
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    main()
