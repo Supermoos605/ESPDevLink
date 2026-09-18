@@ -852,13 +852,28 @@ class ESPDevLinkGUI(tk.Tk):
                 var.set("Unavailable")
             self._log(f"Streaming monitor unavailable: {exc}")
 
+    def _post_host_control(self, path: str, label: str) -> None:
+        def worker() -> None:
+            try:
+                request = urllib.request.Request(
+                    HOST_URL.rstrip("/") + path,
+                    data=b"{}",
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    result = json.loads(response.read().decode("utf-8"))
+                self.after(0, lambda: self._log(f"{label}: {json.dumps(result)}"))
+                self.after(0, self.refresh_stream_page)
+            except Exception as exc:
+                self.after(0, lambda: self._log(f"{label} failed: {exc}"))
+        threading.Thread(target=worker, daemon=True).start()
+
     def start_stream(self) -> None:
-        self._start_process([PYTHON, "-c", "from host.api import HostAPI; print(HostAPI().start_stream())"],
-                            "Starting stream")
+        self._post_host_control("/api/host/stream/start", "Start stream")
 
     def stop_stream(self) -> None:
-        self._start_process([PYTHON, "-c", "from host.api import HostAPI; print(HostAPI().stop_stream())"],
-                            "Stopping stream")
+        self._post_host_control("/api/host/stream/stop", "Stop stream")
 
     def _schedule_command(self, args: list[str], label: str) -> None:
         self._start_process(args, label)
