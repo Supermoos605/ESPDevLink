@@ -3,10 +3,10 @@ setlocal
 cd /d "%~dp0"
 
 rem ESPDevLink graphical control center.
-rem Prefer the virtual environment, but keep a visible console so startup
-rem errors are not silently hidden.
+rem The host UI is browser-rendered through Windows WebView2 so fonts,
+rem SVG icons, gradients, and rounded controls stay sharp.
 if exist ".venv\Scripts\python.exe" (
-    ".venv\Scripts\python.exe" -m host.host_gui
+    ".venv\Scripts\python.exe" -m host.host_gui_web
     if errorlevel 1 (
         echo.
         echo ESPDevLink GUI exited with an error.
@@ -17,7 +17,7 @@ if exist ".venv\Scripts\python.exe" (
 
 where py >nul 2>&1
 if not errorlevel 1 (
-    py -3 -m host.host_gui
+    py -3 -m host.host_gui_web
     if errorlevel 1 (
         echo.
         echo ESPDevLink GUI exited with an error.
@@ -28,7 +28,7 @@ if not errorlevel 1 (
 
 where python >nul 2>&1
 if not errorlevel 1 (
-    python -m host.host_gui
+    python -m host.host_gui_web
     if errorlevel 1 (
         echo.
         echo ESPDevLink GUI exited with an error.
