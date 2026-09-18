@@ -250,11 +250,15 @@ class HostControlAPI:
 
     def open_web(self):
         webbrowser.open(HOST_URL + "/")
-        return "Opened web interface."
+        message = "Opened web interface."
+        self._append_output("[Control Center] " + message)
+        return message
 
     def open_esp32(self):
         webbrowser.open("http://steamlink.local/")
-        return "Opened ESP32 interface."
+        message = "Opened ESP32 interface at http://steamlink.local/"
+        self._append_output("[Control Center] " + message)
+        return message
 
     def set_mode(self, mode):
         mode = mode.strip().upper()
