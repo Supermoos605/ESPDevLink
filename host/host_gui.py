@@ -1,7 +1,8 @@
-"""ESPDevLink Windows desktop launcher.
+"""ESPDevLink Windows desktop control center.
 
-A graphical replacement for the command-line launcher. The existing host,
-heartbeat, simulator, dependency, test, and browser operations remain available.
+The GUI is the primary Windows control surface for the ESPDevLink host.
+Existing launcher operations remain available while the dashboard adds live
+host health, connection, streaming, and activity information.
 """
 
 from __future__ import annotations
@@ -13,169 +14,596 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
+import urllib.error
+import urllib.request
+import webbrowser
 from pathlib import Path
 from tkinter import messagebox, ttk
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HOST_URL = "http://127.0.0.1:8765/"
+HOST_STATUS_URL = HOST_URL + "api/host/status"
+HOST_HEALTH_URL = HOST_URL + "api/host/health"
+
 PYTHON = sys.executable
 if (REPO_ROOT / ".venv" / "Scripts" / "python.exe").exists():
     PYTHON = str(REPO_ROOT / ".venv" / "Scripts" / "python.exe")
+
+BG = "#0b111b"
+SIDEBAR = "#101a2a"
+CARD = "#132238"
+CARD_ALT = "#102033"
+BORDER = "#24415f"
+TEXT = "#e8f0fa"
+MUTED = "#8ea4bb"
+BLUE = "#2d8cff"
+GREEN = "#20d46b"
+YELLOW = "#f4c84a"
+RED = "#ff5d63"
 
 
 class ESPDevLinkGUI(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("ESPDevLink Host")
-        self.geometry("900x620")
-        self.minsize(780, 540)
-        self.configure(bg="#101216")
+        self.geometry("1120x760")
+        self.minsize(940, 650)
+        self.configure(bg=BG)
 
         self.process: subprocess.Popen[str] | None = None
         self.output_queue: queue.Queue[str] = queue.Queue()
+        self.nav_buttons: dict[str, tk.Button] = {}
 
         self._setup_style()
         self._build_ui()
         self.after(100, self._poll_output)
+        self.after(1000, self._refresh_dashboard)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _setup_style(self) -> None:
         style = ttk.Style(self)
         style.theme_use("clam")
-        style.configure(".", background="#101216", foreground="#e7e9ed")
-        style.configure("TFrame", background="#101216")
-        style.configure("Card.TFrame", background="#181b21")
-        style.configure("TLabel", background="#101216", foreground="#e7e9ed")
-        style.configure("Card.TLabel", background="#181b21", foreground="#e7e9ed")
-        style.configure("Title.TLabel", font=("Segoe UI", 22, "bold"))
-        style.configure("Subtitle.TLabel", foreground="#9aa1ad", font=("Segoe UI", 10))
-        style.configure("CardTitle.TLabel", background="#181b21", font=("Segoe UI", 11, "bold"))
-        style.configure("Status.TLabel", background="#181b21", font=("Segoe UI", 10))
-        style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"), padding=(18, 10))
-        style.configure("Action.TButton", font=("Segoe UI", 10), padding=(14, 8))
-        style.configure("TNotebook", background="#101216", borderwidth=0)
-        style.configure("TNotebook.Tab", padding=(16, 8))
-        style.map("TButton", background=[("active", "#2b3039")])
+        style.configure(
+            "TProgressbar",
+            troughcolor="#0b1420",
+            background=BLUE,
+            bordercolor="#0b1420",
+            lightcolor=BLUE,
+            darkcolor=BLUE,
+        )
+        style.configure(
+            "Action.TButton",
+            font=("Segoe UI", 10),
+            padding=(14, 9),
+        )
+        style.configure(
+            "Accent.TButton",
+            font=("Segoe UI", 10, "bold"),
+            padding=(16, 10),
+        )
+        style.map("TButton", background=[("active", "#21466d")])
 
     def _build_ui(self) -> None:
-        root = ttk.Frame(self, padding=24)
-        root.pack(fill="both", expand=True)
+        self._build_header()
 
-        header = ttk.Frame(root)
+        shell = tk.Frame(self, bg=BG)
+        shell.pack(fill="both", expand=True)
+
+        self.sidebar = tk.Frame(shell, bg=SIDEBAR, width=210)
+        self.sidebar.pack(side="left", fill="y")
+        self.sidebar.pack_propagate(False)
+        self._build_sidebar()
+
+        self.content = tk.Frame(shell, bg=BG)
+        self.content.pack(side="left", fill="both", expand=True)
+
+        self.pages: dict[str, tk.Frame] = {}
+        self._build_dashboard_page()
+        self._build_operations_page()
+        self._build_diagnostics_page()
+        self.show_page("Dashboard")
+
+        self._build_footer()
+
+    def _build_header(self) -> None:
+        header = tk.Frame(self, bg="#0e1725", height=82)
         header.pack(fill="x")
-        ttk.Label(header, text="ESPDevLink Host", style="Title.TLabel").pack(anchor="w")
-        ttk.Label(
-            header,
+        header.pack_propagate(False)
+
+        brand = tk.Frame(header, bg="#0e1725")
+        brand.pack(side="left", padx=24, fill="y")
+        tk.Label(
+            brand,
+            text="🎮",
+            bg="#0e1725",
+            fg=TEXT,
+            font=("Segoe UI Emoji", 25),
+        ).pack(side="left", padx=(0, 12))
+        titles = tk.Frame(brand, bg="#0e1725")
+        titles.pack(side="left", pady=13)
+        tk.Label(
+            titles,
+            text="ESPDevLink Host",
+            bg="#0e1725",
+            fg=TEXT,
+            font=("Segoe UI", 18, "bold"),
+        ).pack(anchor="w")
+        tk.Label(
+            titles,
             text="Windows host control center",
-            style="Subtitle.TLabel",
-        ).pack(anchor="w", pady=(2, 18))
+            bg="#0e1725",
+            fg=MUTED,
+            font=("Segoe UI", 9),
+        ).pack(anchor="w")
 
-        status_card = ttk.Frame(root, style="Card.TFrame", padding=18)
-        status_card.pack(fill="x", pady=(0, 14))
-
-        left = ttk.Frame(status_card, style="Card.TFrame")
-        left.pack(side="left", fill="x", expand=True)
-        ttk.Label(left, text="HOST STATUS", style="CardTitle.TLabel").pack(anchor="w")
-        self.status_var = tk.StringVar(value="● Stopped")
-        self.status_label = ttk.Label(left, textvariable=self.status_var, style="Status.TLabel")
-        self.status_label.pack(anchor="w", pady=(8, 0))
-        self.detail_var = tk.StringVar(value="Ready to start ESPDevLink.")
-        ttk.Label(left, textvariable=self.detail_var, style="Subtitle.TLabel").pack(anchor="w", pady=(3, 0))
-
-        buttons = ttk.Frame(status_card, style="Card.TFrame")
-        buttons.pack(side="right")
-        self.start_button = ttk.Button(
-            buttons, text="▶  Start Host", style="Accent.TButton", command=self.start_host
+        self.header_status = tk.Label(
+            header,
+            text="● HOST STOPPED",
+            bg="#0e1725",
+            fg=RED,
+            font=("Segoe UI", 10, "bold"),
         )
-        self.start_button.pack(side="left", padx=(0, 8))
-        self.stop_button = ttk.Button(
-            buttons, text="■  Stop", style="Action.TButton", command=self.stop_host, state="disabled"
+        self.header_status.pack(side="right", padx=24)
+
+    def _build_sidebar(self) -> None:
+        tk.Label(
+            self.sidebar,
+            text="CONTROL CENTER",
+            bg=SIDEBAR,
+            fg=MUTED,
+            font=("Segoe UI", 8, "bold"),
+        ).pack(anchor="w", padx=20, pady=(24, 10))
+
+        for name, icon in (
+            ("Dashboard", "⌂"),
+            ("Operations", "⚡"),
+            ("Diagnostics", "◉"),
+        ):
+            button = tk.Button(
+                self.sidebar,
+                text=f"  {icon}   {name}",
+                anchor="w",
+                bd=0,
+                relief="flat",
+                bg=SIDEBAR,
+                fg=MUTED,
+                activebackground="#17365a",
+                activeforeground=TEXT,
+                font=("Segoe UI", 10),
+                padx=12,
+                pady=11,
+                cursor="hand2",
+                command=lambda n=name: self.show_page(n),
+            )
+            button.pack(fill="x", padx=10, pady=2)
+            self.nav_buttons[name] = button
+
+        tk.Frame(self.sidebar, bg=BORDER, height=1).pack(fill="x", padx=18, pady=18)
+
+        tk.Label(
+            self.sidebar,
+            text="QUICK ACCESS",
+            bg=SIDEBAR,
+            fg=MUTED,
+            font=("Segoe UI", 8, "bold"),
+        ).pack(anchor="w", padx=20, pady=(0, 8))
+
+        for label, command in (
+            ("Open Web Interface", self.open_web),
+            ("Run Tests", self.run_tests),
+            ("Create Virtual Environment", self.create_venv),
+        ):
+            tk.Button(
+                self.sidebar,
+                text=label,
+                anchor="w",
+                bd=0,
+                bg=SIDEBAR,
+                fg=TEXT,
+                activebackground="#17365a",
+                activeforeground=TEXT,
+                font=("Segoe UI", 9),
+                padx=20,
+                pady=7,
+                cursor="hand2",
+                command=command,
+            ).pack(fill="x")
+
+    def _build_dashboard_page(self) -> None:
+        page = tk.Frame(self.content, bg=BG)
+        self.pages["Dashboard"] = page
+
+        title = tk.Frame(page, bg=BG)
+        title.pack(fill="x", padx=26, pady=(24, 16))
+        tk.Label(
+            title,
+            text="Dashboard",
+            bg=BG,
+            fg=TEXT,
+            font=("Segoe UI", 22, "bold"),
+        ).pack(side="left")
+        tk.Label(
+            title,
+            text="Live ESPDevLink host overview",
+            bg=BG,
+            fg=MUTED,
+            font=("Segoe UI", 10),
+        ).pack(side="left", padx=14, pady=(8, 0))
+
+        self.host_card = self._status_card(page, "HOST SERVER", "Stopped", RED)
+        self.esp_card = self._status_card(page, "ESP32", "Not connected", MUTED)
+        self.webrtc_card = self._status_card(page, "WEBRTC", "Waiting", MUTED)
+        self.stream_card = self._status_card(page, "STREAMING", "Stopped", MUTED)
+
+        cards = tk.Frame(page, bg=BG)
+        cards.pack(fill="x", padx=20)
+        for card in (self.host_card, self.esp_card, self.webrtc_card, self.stream_card):
+            card.pack(in_=cards, side="left", fill="both", expand=True, padx=6)
+
+        middle = tk.Frame(page, bg=BG)
+        middle.pack(fill="both", expand=True, padx=20, pady=12)
+
+        left = self._panel(middle, "CONNECTION & HOST")
+        left.pack(side="left", fill="both", expand=True, padx=(6, 6))
+        self.connection_vars = {}
+        for key, label in (
+            ("mode", "Connection Mode"),
+            ("computer", "Computer"),
+            ("ip", "Host IP"),
+            ("mdns", "mDNS"),
+            ("game", "Game"),
+            ("uptime", "Host Uptime"),
+        ):
+            self.connection_vars[key] = self._info_row(left, label, "—")
+
+        right = self._panel(middle, "STREAM HEALTH")
+        right.pack(side="left", fill="both", expand=True, padx=(6, 6))
+        self.stream_vars = {}
+        for key, label in (
+            ("state", "State"),
+            ("quality", "Quality"),
+            ("fps", "FPS"),
+            ("resolution", "Resolution"),
+            ("bitrate", "Bitrate"),
+            ("health", "Health"),
+        ):
+            self.stream_vars[key] = self._info_row(right, label, "—")
+
+        actions = tk.Frame(page, bg=BG)
+        actions.pack(fill="x", padx=26, pady=(0, 12))
+        self.dashboard_start = ttk.Button(
+            actions, text="▶  Start Host", style="Accent.TButton", command=self.start_host
         )
-        self.stop_button.pack(side="left")
-
-        body = ttk.Frame(root)
-        body.pack(fill="both", expand=True)
-
-        self._make_card(
-            body,
-            "HOST OPERATIONS",
-            [
-                ("Start Host Server", self.start_host),
-                ("Start Network Heartbeat", self.start_heartbeat),
-                ("Start ESPLink Simulator", self.start_simulator),
-                ("Open Local Web Interface", self.open_web),
-            ],
-            side="left",
+        self.dashboard_start.pack(side="left", padx=(0, 8))
+        self.dashboard_stop = ttk.Button(
+            actions, text="■  Stop Host", style="Action.TButton", command=self.stop_host
         )
-
-        self._make_card(
-            body,
-            "TOOLS",
-            [
-                ("Run Diagnostics", self.run_diagnostics),
-                ("Run Tests", self.run_tests),
-                ("Install Dependencies", self.install_dependencies),
-                ("Create Virtual Environment", self.create_venv),
-            ],
-            side="right",
+        self.dashboard_stop.pack(side="left", padx=8)
+        ttk.Button(
+            actions, text="↗  Open Web Interface", style="Action.TButton", command=self.open_web
+        ).pack(side="left", padx=8)
+        self.last_update = tk.Label(
+            actions, text="Waiting for host...", bg=BG, fg=MUTED, font=("Segoe UI", 9)
         )
+        self.last_update.pack(side="right")
 
-        log_card = ttk.Frame(root, style="Card.TFrame", padding=14)
-        log_card.pack(fill="both", expand=True, pady=(14, 0))
-        top = ttk.Frame(log_card, style="Card.TFrame")
-        top.pack(fill="x")
-        ttk.Label(top, text="ACTIVITY", style="CardTitle.TLabel").pack(side="left")
-        ttk.Button(top, text="Clear", command=self.clear_log).pack(side="right")
+    def _build_operations_page(self) -> None:
+        page = tk.Frame(self.content, bg=BG)
+        self.pages["Operations"] = page
 
-        self.log = tk.Text(
-            log_card,
-            height=8,
-            bg="#0c0e12",
-            fg="#cbd0d8",
-            insertbackground="#cbd0d8",
+        tk.Label(
+            page, text="Operations", bg=BG, fg=TEXT, font=("Segoe UI", 22, "bold")
+        ).pack(anchor="w", padx=26, pady=(24, 4))
+        tk.Label(
+            page,
+            text="Everything from the original ESPDevLink launcher, now in one place.",
+            bg=BG,
+            fg=MUTED,
+            font=("Segoe UI", 10),
+        ).pack(anchor="w", padx=26, pady=(0, 18))
+
+        columns = tk.Frame(page, bg=BG)
+        columns.pack(fill="x", padx=20)
+
+        host_panel = self._panel(columns, "HOST CONTROL")
+        host_panel.pack(side="left", fill="both", expand=True, padx=6)
+        for text, command in (
+            ("▶  Start Host Server", self.start_host),
+            ("■  Stop Current Process", self.stop_host),
+            ("♥  Start Network Heartbeat", self.start_heartbeat),
+            ("▣  Start ESPLink Simulator", self.start_simulator),
+            ("↗  Open Local Web Interface", self.open_web),
+        ):
+            ttk.Button(host_panel, text=text, command=command, style="Action.TButton").pack(
+                fill="x", pady=5
+            )
+
+        tools_panel = self._panel(columns, "TOOLS")
+        tools_panel.pack(side="left", fill="both", expand=True, padx=6)
+        for text, command in (
+            ("◉  Run Diagnostics", self.run_diagnostics),
+            ("✓  Run Tests", self.run_tests),
+            ("↓  Install Host Dependencies", self.install_dependencies),
+            ("🐍  Create Virtual Environment", self.create_venv),
+        ):
+            ttk.Button(tools_panel, text=text, command=command, style="Action.TButton").pack(
+                fill="x", pady=5
+            )
+
+        log_panel = self._panel(page, "ACTIVITY")
+        log_panel.pack(fill="both", expand=True, padx=26, pady=18)
+        self._build_log(log_panel)
+
+    def _build_diagnostics_page(self) -> None:
+        page = tk.Frame(self.content, bg=BG)
+        self.pages["Diagnostics"] = page
+
+        tk.Label(
+            page, text="Diagnostics", bg=BG, fg=TEXT, font=("Segoe UI", 22, "bold")
+        ).pack(anchor="w", padx=26, pady=(24, 4))
+        tk.Label(
+            page,
+            text="Live checks are read from the local host API when the server is running.",
+            bg=BG,
+            fg=MUTED,
+            font=("Segoe UI", 10),
+        ).pack(anchor="w", padx=26, pady=(0, 16))
+
+        panel = self._panel(page, "HEALTH CHECKS")
+        panel.pack(fill="x", padx=26)
+
+        self.diagnostic_vars: dict[str, tk.StringVar] = {}
+        for key, label in (
+            ("host", "Host Server"),
+            ("stream", "Stream"),
+            ("game", "Game"),
+            ("quality", "Stream Quality"),
+            ("health", "Stream Health"),
+        ):
+            row = tk.Frame(panel, bg=CARD)
+            row.pack(fill="x", pady=5)
+            tk.Label(row, text=label, bg=CARD, fg=TEXT, font=("Segoe UI", 10)).pack(side="left")
+            var = tk.StringVar(value="Waiting...")
+            self.diagnostic_vars[key] = var
+            tk.Label(
+                row, textvariable=var, bg=CARD, fg=MUTED, font=("Segoe UI", 10, "bold")
+            ).pack(side="right")
+
+        ttk.Button(
+            page,
+            text="◉  Run Full Host Diagnostics",
+            style="Accent.TButton",
+            command=self.run_diagnostics,
+        ).pack(anchor="w", padx=26, pady=16)
+
+        log_panel = self._panel(page, "DIAGNOSTIC OUTPUT")
+        log_panel.pack(fill="both", expand=True, padx=26, pady=(0, 20))
+        self.diag_text = tk.Text(
+            log_panel,
+            height=12,
+            bg="#08111b",
+            fg="#b9c9da",
+            insertbackground=TEXT,
             relief="flat",
             font=("Consolas", 9),
             wrap="word",
         )
-        self.log.pack(fill="both", expand=True, pady=(10, 0))
-        self.log.insert("end", "ESPDevLink Host GUI ready.\n")
+        self.diag_text.pack(fill="both", expand=True)
+        self.diag_text.insert("end", "Live health results will appear here.\n")
+        self.diag_text.configure(state="disabled")
+
+    def _build_footer(self) -> None:
+        footer = tk.Frame(self, bg="#0e1725", height=30)
+        footer.pack(fill="x")
+        footer.pack_propagate(False)
+        self.footer_status = tk.Label(
+            footer, text="●  Ready", bg="#0e1725", fg=GREEN, font=("Segoe UI", 8)
+        )
+        self.footer_status.pack(side="left", padx=18)
+        tk.Label(
+            footer,
+            text="ESPDevLink Host Control Center",
+            bg="#0e1725",
+            fg=MUTED,
+            font=("Segoe UI", 8),
+        ).pack(side="right", padx=18)
+
+    def _panel(self, parent: tk.Widget, title: str) -> tk.Frame:
+        panel = tk.Frame(parent, bg=CARD, highlightbackground=BORDER, highlightthickness=1)
+        tk.Label(
+            panel,
+            text=title,
+            bg=CARD,
+            fg=MUTED,
+            font=("Segoe UI", 8, "bold"),
+        ).pack(anchor="w", padx=16, pady=(13, 9))
+        return panel
+
+    def _status_card(self, parent: tk.Widget, title: str, value: str, color: str) -> tk.Frame:
+        card = tk.Frame(parent, bg=CARD, highlightbackground=BORDER, highlightthickness=1, height=96)
+        card.pack_propagate(False)
+        tk.Label(
+            card, text=title, bg=CARD, fg=MUTED, font=("Segoe UI", 8, "bold")
+        ).pack(anchor="w", padx=14, pady=(13, 5))
+        var = tk.StringVar(value=f"●  {value}")
+        label = tk.Label(
+            card, textvariable=var, bg=CARD, fg=color, font=("Segoe UI", 11, "bold")
+        )
+        label.pack(anchor="w", padx=14)
+        card.status_var = var  # type: ignore[attr-defined]
+        card.status_label = label  # type: ignore[attr-defined]
+        return card
+
+    def _info_row(self, parent: tk.Frame, label: str, value: str) -> tk.StringVar:
+        row = tk.Frame(parent, bg=CARD)
+        row.pack(fill="x", padx=14, pady=5)
+        tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Segoe UI", 9)).pack(side="left")
+        var = tk.StringVar(value=value)
+        tk.Label(row, textvariable=var, bg=CARD, fg=TEXT, font=("Segoe UI", 9, "bold")).pack(
+            side="right"
+        )
+        return var
+
+    def _build_log(self, parent: tk.Frame) -> None:
+        top = tk.Frame(parent, bg=CARD)
+        top.pack(fill="x", padx=14, pady=(0, 6))
+        ttk.Button(top, text="Clear", command=self.clear_log).pack(side="right")
+        self.log = tk.Text(
+            parent,
+            height=10,
+            bg="#08111b",
+            fg="#b9c9da",
+            insertbackground=TEXT,
+            relief="flat",
+            font=("Consolas", 9),
+            wrap="word",
+        )
+        self.log.pack(fill="both", expand=True, padx=14, pady=(0, 14))
+        self.log.insert("end", "ESPDevLink Host Control Center ready.\n")
         self.log.configure(state="disabled")
 
-    def _make_card(
-        self,
-        parent: ttk.Frame,
-        title: str,
-        actions: list[tuple[str, object]],
-        side: str,
-    ) -> None:
-        card = ttk.Frame(parent, style="Card.TFrame", padding=16)
-        card.pack(side=side, fill="both", expand=True, padx=(0, 7) if side == "left" else (7, 0))
-        ttk.Label(card, text=title, style="CardTitle.TLabel").pack(anchor="w", pady=(0, 10))
-        for label, command in actions:
-            ttk.Button(card, text=label, command=command, style="Action.TButton").pack(
-                fill="x", pady=4
+    def show_page(self, name: str) -> None:
+        for page in self.pages.values():
+            page.pack_forget()
+        self.pages[name].pack(fill="both", expand=True)
+        for button_name, button in self.nav_buttons.items():
+            button.configure(
+                bg="#174c84" if button_name == name else SIDEBAR,
+                fg=TEXT if button_name == name else MUTED,
             )
 
-    def _set_status(self, running: bool, detail: str = "") -> None:
-        if running:
-            self.status_var.set("● Running")
-            self.detail_var.set(detail or "ESPDevLink host process is running.")
-            self.start_button.configure(state="disabled")
-            self.stop_button.configure(state="normal")
-        else:
-            self.status_var.set("● Stopped")
-            self.detail_var.set(detail or "Ready to start ESPDevLink.")
-            self.start_button.configure(state="normal")
-            self.stop_button.configure(state="disabled")
+    def _set_status_card(self, card: tk.Frame, value: str, color: str) -> None:
+        card.status_var.set(f"●  {value}")  # type: ignore[attr-defined]
+        card.status_label.configure(fg=color)  # type: ignore[attr-defined]
+
+    def _set_diagnostic(self, key: str, value: str, color: str = MUTED) -> None:
+        var = self.diagnostic_vars.get(key)
+        if var:
+            var.set(value)
+
+    def _refresh_dashboard(self) -> None:
+        def worker() -> None:
+            try:
+                with urllib.request.urlopen(HOST_STATUS_URL, timeout=1.5) as response:
+                    status = json.loads(response.read().decode("utf-8"))
+                try:
+                    with urllib.request.urlopen(HOST_HEALTH_URL, timeout=1.5) as response:
+                        health = json.loads(response.read().decode("utf-8"))
+                except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+                    health = {}
+                self.after(0, lambda: self._apply_dashboard_status(status, health))
+            except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+                self.after(0, self._apply_dashboard_offline)
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.after(2000, self._refresh_dashboard)
+
+    def _apply_dashboard_offline(self) -> None:
+        self._set_status_card(self.host_card, "Stopped / Offline", RED)
+        self._set_status_card(self.esp_card, "Not connected", MUTED)
+        self._set_status_card(self.webrtc_card, "Waiting", MUTED)
+        self._set_status_card(self.stream_card, "Stopped", MUTED)
+        self.header_status.configure(text="● HOST STOPPED", fg=RED)
+        self.footer_status.configure(text="●  Host server offline", fg=RED)
+        self.dashboard_start.configure(state="normal")
+        self.dashboard_stop.configure(state="disabled")
+        self.last_update.configure(text="Host API unavailable")
+        for var in self.connection_vars.values():
+            var.set("—")
+        for var in self.stream_vars.values():
+            var.set("—")
+        for key in self.diagnostic_vars:
+            self.diagnostic_vars[key].set("Offline")
+
+    def _apply_dashboard_status(self, status: dict, health: dict) -> None:
+        host = status.get("host", {})
+        network = status.get("network", {})
+        stream = status.get("stream", {})
+        runtime = stream.get("runtime", {}) if isinstance(stream, dict) else {}
+        quality = runtime.get("quality", {}) if isinstance(runtime, dict) else {}
+        stream_health = runtime.get("health", {}) if isinstance(runtime, dict) else {}
+
+        host_online = bool(host.get("online"))
+        stream_state = str(host.get("stream") or stream.get("state") or "stopped")
+        network_host = str(network.get("host") or "—")
+        mdns = str(network.get("mdns_name") or "—")
+        mode = str(os.environ.get("ESPLINK_CONNECTION_MODE", "AUTOMATIC")).upper()
+
+        self._set_status_card(self.host_card, "Running" if host_online else "Offline", GREEN if host_online else RED)
+        self._set_status_card(self.esp_card, "Connected" if network_host not in {"—", ""} else "Unknown", GREEN if network_host not in {"—", ""} else MUTED)
+        self._set_status_card(self.webrtc_card, "Available" if stream_state not in {"stopped", "idle"} else "Waiting", GREEN if stream_state not in {"stopped", "idle"} else MUTED)
+        self._set_status_card(self.stream_card, stream_state.title(), GREEN if stream_state not in {"stopped", "idle"} else MUTED)
+
+        self.header_status.configure(
+            text="● HOST RUNNING" if host_online else "● HOST OFFLINE",
+            fg=GREEN if host_online else RED,
+        )
+        self.footer_status.configure(
+            text="●  Host API connected" if host_online else "●  Host API responding",
+            fg=GREEN if host_online else YELLOW,
+        )
+        self.dashboard_start.configure(state="disabled" if self.process and self.process.poll() is None else "normal")
+        self.dashboard_stop.configure(state="normal" if self.process and self.process.poll() is None else "disabled")
+        self.last_update.configure(text="Updated just now")
+
+        values = {
+            "mode": mode,
+            "computer": str(host.get("name") or "—"),
+            "ip": network_host,
+            "mdns": mdns,
+            "game": str(host.get("game") or "Desktop"),
+            "uptime": self._format_seconds(health.get("uptime_seconds")),
+        }
+        for key, value in values.items():
+            self.connection_vars[key].set(value)
+
+        fps = quality.get("fps", quality.get("frame_rate", "—"))
+        resolution = quality.get("resolution", "—")
+        bitrate = quality.get("bitrate", "—")
+        health_value = "OK" if stream_health else "—"
+        stream_values = {
+            "state": stream_state.title(),
+            "quality": str(quality.get("preset") or quality.get("profile") or "Auto"),
+            "fps": str(fps),
+            "resolution": str(resolution),
+            "bitrate": str(bitrate),
+            "health": health_value,
+        }
+        for key, value in stream_values.items():
+            self.stream_vars[key].set(value)
+
+        self._set_diagnostic("host", "Online" if host_online else "Offline")
+        self._set_diagnostic("stream", stream_state.title())
+        self._set_diagnostic("game", str(host.get("game") or "Desktop"))
+        self._set_diagnostic("quality", json.dumps(quality, separators=(",", ":")) if quality else "No runtime data")
+        self._set_diagnostic("health", json.dumps(stream_health, separators=(",", ":")) if stream_health else "No runtime data")
+
+    @staticmethod
+    def _format_seconds(value: object) -> str:
+        try:
+            seconds = max(0, int(value or 0))
+        except (TypeError, ValueError):
+            return "—"
+        hours, remainder = divmod(seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours:
+            return f"{hours}h {minutes}m"
+        if minutes:
+            return f"{minutes}m {seconds}s"
+        return f"{seconds}s"
 
     def _log(self, text: str) -> None:
+        if not hasattr(self, "log"):
+            return
         self.log.configure(state="normal")
         self.log.insert("end", text.rstrip() + "\n")
         self.log.see("end")
         self.log.configure(state="disabled")
 
     def clear_log(self) -> None:
+        if not hasattr(self, "log"):
+            return
         self.log.configure(state="normal")
         self.log.delete("1.0", "end")
         self.log.configure(state="disabled")
@@ -203,8 +631,7 @@ class ESPDevLinkGUI(tk.Tk):
             messagebox.showerror("ESPDevLink", str(exc))
             return
 
-        self._set_status(True, label)
-
+        self.footer_status.configure(text=f"●  {label}", fg=YELLOW)
         threading.Thread(target=self._read_process, args=(self.process,), daemon=True).start()
 
     def _read_process(self, process: subprocess.Popen[str]) -> None:
@@ -220,7 +647,7 @@ class ESPDevLinkGUI(tk.Tk):
                 line = self.output_queue.get_nowait()
                 self._log(line)
                 if self.process and self.process.poll() is not None:
-                    self._set_status(False, f"Process exited with code {self.process.returncode}.")
+                    self.footer_status.configure(text=f"●  Process exited ({self.process.returncode})", fg=YELLOW)
                     self.process = None
         except queue.Empty:
             pass
@@ -251,16 +678,16 @@ class ESPDevLinkGUI(tk.Tk):
         self._start_process([PYTHON, "-m", "venv", ".venv"], "Creating virtual environment")
 
     def run_diagnostics(self) -> None:
+        self.show_page("Diagnostics")
         self._start_process([PYTHON, "-m", "host.run_host"], "Running host diagnostics")
 
     def open_web(self) -> None:
-        import webbrowser
         webbrowser.open(HOST_URL)
         self._log(f"Opened {HOST_URL}")
 
     def stop_host(self) -> None:
         if not self.process or self.process.poll() is not None:
-            self._set_status(False)
+            self.dashboard_stop.configure(state="disabled")
             return
         self._log("Stopping current operation...")
         self.process.terminate()
@@ -269,7 +696,7 @@ class ESPDevLinkGUI(tk.Tk):
         except subprocess.TimeoutExpired:
             self.process.kill()
         self.process = None
-        self._set_status(False, "Host operation stopped.")
+        self.footer_status.configure(text="●  Host operation stopped", fg=MUTED)
 
     def _on_close(self) -> None:
         if self.process and self.process.poll() is None:
