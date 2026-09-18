@@ -124,7 +124,7 @@ class SteamButton(tk.Canvas):
             self._rounded_rect(x1, y1, x2, y2, radius, fill)
             # Subtle border in the same translucent style as .secondary.
             self.create_arc(x1, y1, x1 + 2 * radius, y2, start=90, extent=180, outline="#252a36")
-            self.create_arc(x2 - 2 * radius, y1, x2, y2, start=270, extent=180, outline="#ffffff12")
+            self.create_arc(x2 - 2 * radius, y1, x2, y2, start=270, extent=180, outline="#252a36")
             text_color = "#727d91" if self._disabled else "#c8cfdd"
             font = ("Inter", 10, "bold")
         self.create_text(w / 2, h / 2, text=self._label, fill=text_color, font=font)
