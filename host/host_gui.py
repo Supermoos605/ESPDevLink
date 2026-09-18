@@ -644,7 +644,8 @@ class ESPDevLinkGUI(tk.Tk):
         self.schedule_output = tk.Text(panel, height=8, bg="#08111b", fg="#b9c9da",
                                        relief="flat", font=("Consolas", 9), wrap="word")
         self.schedule_output.pack(fill="both", expand=True, padx=14, pady=(0, 14))
-        self.schedule_output.insert("end", "No schedule query run yet.\n")        self.schedule_output.configure(state="disabled")
+        self.schedule_output.insert("end", "No schedule query run yet.\n")
+        self.schedule_output.configure(state="disabled")
 
     def _build_streaming_page(self) -> None:
         page = tk.Frame(self.content, bg=BG)
