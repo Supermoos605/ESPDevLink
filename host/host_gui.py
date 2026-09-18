@@ -54,6 +54,7 @@ class ESPDevLinkGUI(tk.Tk):
         self.process: subprocess.Popen[str] | None = None
         self.output_queue: queue.Queue[str] = queue.Queue()
         self.nav_buttons: dict[str, tk.Button] = {}
+        self.connection_mode = tk.StringVar(value=os.environ.get("ESPLINK_CONNECTION_MODE", "AUTOMATIC").upper())
 
         self._setup_style()
         self._build_ui()
@@ -102,6 +103,7 @@ class ESPDevLinkGUI(tk.Tk):
         self._build_dashboard_page()
         self._build_operations_page()
         self._build_diagnostics_page()
+        self._build_connection_page()
         self.show_page("Dashboard")
 
         self._build_footer()
@@ -159,6 +161,7 @@ class ESPDevLinkGUI(tk.Tk):
             ("Dashboard", "⌂"),
             ("Operations", "⚡"),
             ("Diagnostics", "◉"),
+            ("Connection", "⇄"),
         ):
             button = tk.Button(
                 self.sidebar,
@@ -393,6 +396,62 @@ class ESPDevLinkGUI(tk.Tk):
         self.diag_text.insert("end", "Live health results will appear here.\n")
         self.diag_text.configure(state="disabled")
 
+    def _build_connection_page(self) -> None:
+        page = tk.Frame(self.content, bg=BG)
+        self.pages["Connection"] = page
+
+        tk.Label(
+            page, text="Connection", bg=BG, fg=TEXT, font=("Segoe UI", 22, "bold")
+        ).pack(anchor="w", padx=26, pady=(24, 4))
+        tk.Label(
+            page,
+            text="Choose how the browser client should route its next connection.",
+            bg=BG,
+            fg=MUTED,
+            font=("Segoe UI", 10),
+        ).pack(anchor="w", padx=26, pady=(0, 18))
+
+        panel = self._panel(page, "CONNECTION MODE")
+        panel.pack(fill="x", padx=26)
+
+        tk.Label(
+            panel,
+            text="The selected mode is passed to the web interface as a connection-mode parameter.\n"
+                 "Changing the host process mode affects its heartbeat display; it does not change ESP32 firmware settings.",
+            bg=CARD, fg=MUTED, justify="left", font=("Segoe UI", 9),
+        ).pack(anchor="w", padx=16, pady=(0, 14))
+
+        modes = (
+            ("AUTOMATIC", "Try the normal connection routing."),
+            ("REMOTE", "Request the remote Quick Tunnel route."),
+            ("FORCE_REMOTE", "Always request the remote route for testing."),
+        )
+        for mode, description in modes:
+            row = tk.Frame(panel, bg=CARD)
+            row.pack(fill="x", padx=12, pady=4)
+            tk.Radiobutton(
+                row, text=mode, variable=self.connection_mode, value=mode,
+                bg=CARD, fg=TEXT, activebackground=CARD, activeforeground=TEXT,
+                selectcolor=SIDEBAR, font=("Segoe UI", 10, "bold"),
+            ).pack(side="left")
+            tk.Label(row, text=description, bg=CARD, fg=MUTED, font=("Segoe UI", 9)).pack(
+                side="left", padx=12
+            )
+
+        actions = tk.Frame(panel, bg=CARD)
+        actions.pack(fill="x", padx=12, pady=(14, 12))
+        ttk.Button(actions, text="Open Selected Mode", style="Accent.TButton", command=self.open_selected_mode).pack(side="left")
+        ttk.Button(actions, text="Restart Host With Mode", style="Action.TButton", command=self.restart_host_with_mode).pack(side="left", padx=8)
+
+        status = self._panel(page, "CURRENT HOST SETTING")
+        status.pack(fill="x", padx=26, pady=18)
+        self.connection_mode_status = tk.StringVar(value="AUTOMATIC")
+        tk.Label(status, textvariable=self.connection_mode_status, bg=CARD, fg=TEXT,
+                 font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=16, pady=(2, 4))
+        tk.Label(status, text="This is the mode that will be inherited by newly started host processes.",
+                 bg=CARD, fg=MUTED, font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(0, 14))
+        self._sync_connection_mode_status()
+
     def _build_footer(self) -> None:
         footer = tk.Frame(self, bg="#0e1725", height=30)
         footer.pack(fill="x")
@@ -529,6 +588,10 @@ class ESPDevLinkGUI(tk.Tk):
         network_host = str(network.get("host") or "—")
         mdns = str(network.get("mdns_name") or "—")
         mode = str(os.environ.get("ESPLINK_CONNECTION_MODE", "AUTOMATIC")).upper()
+        if mode not in {"AUTOMATIC", "REMOTE", "FORCE_REMOTE"}:
+            mode = "AUTOMATIC"
+        self.connection_mode.set(mode)
+        self._sync_connection_mode_status()
 
         self._set_status_card(self.host_card, "Running" if host_online else "Offline", GREEN if host_online else RED)
         self._set_status_card(self.esp_card, "Connected" if network_host not in {"—", ""} else "Unknown", GREEN if network_host not in {"—", ""} else MUTED)
@@ -653,8 +716,36 @@ class ESPDevLinkGUI(tk.Tk):
             pass
         self.after(100, self._poll_output)
 
+    def _sync_connection_mode_status(self) -> None:
+        mode = self.connection_mode.get().upper()
+        self.connection_mode_status.set(mode if mode in {"AUTOMATIC", "REMOTE", "FORCE_REMOTE"} else "AUTOMATIC")
+
+    def _mode_url(self) -> str:
+        mode = self.connection_mode.get().upper()
+        if mode == "AUTOMATIC":
+            return HOST_URL
+        return HOST_URL + "?mode=" + mode
+
+    def open_selected_mode(self) -> None:
+        url = self._mode_url()
+        webbrowser.open(url)
+        self._log(f"Opened connection mode: {self.connection_mode.get().upper()}")
+
+    def restart_host_with_mode(self) -> None:
+        if self.process and self.process.poll() is None:
+            self.stop_host()
+        mode = self.connection_mode.get().upper()
+        os.environ["ESPLINK_CONNECTION_MODE"] = mode
+        self._sync_connection_mode_status()
+        self.start_host()
+
     def start_host(self) -> None:
-        self._start_process([PYTHON, "-m", "host.host_server"], "Starting host server")
+        mode = self.connection_mode.get().upper()
+        if mode not in {"AUTOMATIC", "REMOTE", "FORCE_REMOTE"}:
+            mode = "AUTOMATIC"
+        os.environ["ESPLINK_CONNECTION_MODE"] = mode
+        self._sync_connection_mode_status()
+        self._start_process([PYTHON, "-m", "host.host_server"], f"Starting host server ({mode})")
 
     def start_heartbeat(self) -> None:
         self._start_process([PYTHON, "-m", "host.network.heartbeat"], "Starting network heartbeat")
