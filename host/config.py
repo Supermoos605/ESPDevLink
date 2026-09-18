@@ -37,25 +37,19 @@ VIDEO_MAX_HEIGHT = max(0, int(os.environ.get("ESPLINK_VIDEO_MAX_HEIGHT", DEFAULT
 ALLOW_CONNECTIONS = os.environ.get("ESPLINK_ALLOW_CONNECTIONS", "1").lower() not in {"0", "false", "no", "off"}
 try:
     from include.espdevlink_secrets import (
-        WIFI_SSID as LOCAL_WIFI_SSID,
-        WIFI_PASSWORD as LOCAL_WIFI_PASSWORD,
         ACCESS_CODE as LOCAL_ACCESS_CODE,
         KEYVAL_KEY as LOCAL_KEYVAL_KEY,
     )
 except ImportError:
-    LOCAL_WIFI_SSID = ""
-    LOCAL_WIFI_PASSWORD = ""
     LOCAL_ACCESS_CODE = ""
     LOCAL_KEYVAL_KEY = ""
 
-WIFI_SSID = os.environ.get("ESPDEVLINK_WIFI_SSID", LOCAL_WIFI_SSID).strip()
-WIFI_PASSWORD = os.environ.get("ESPDEVLINK_WIFI_PASSWORD", LOCAL_WIFI_PASSWORD)
 AUTHORIZATION_CODE = os.environ.get("ESPLINK_AUTH_CODE", LOCAL_ACCESS_CODE).strip()
 KEYVAL_KEY = os.environ.get("ESPDEVLINK_KEYVAL_KEY", LOCAL_KEYVAL_KEY).strip()
 
 if not AUTHORIZATION_CODE:
     raise RuntimeError(
-        "Set ACCESS_CODE in include/espdevlink_secrets.py or ESPLINK_AUTH_CODE."
+        "Set ACCESS_CODE in include.espdevlink_secrets.py or ESPLINK_AUTH_CODE."
     )
 
 
