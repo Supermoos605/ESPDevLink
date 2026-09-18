@@ -17,6 +17,7 @@ import tkinter as tk
 import urllib.error
 import urllib.request
 import webbrowser
+import socket
 from pathlib import Path
 from tkinter import messagebox, ttk
 
@@ -104,6 +105,7 @@ class ESPDevLinkGUI(tk.Tk):
         self._build_operations_page()
         self._build_diagnostics_page()
         self._build_connection_page()
+        self._build_network_page()
         self.show_page("Dashboard")
 
         self._build_footer()
@@ -162,6 +164,7 @@ class ESPDevLinkGUI(tk.Tk):
             ("Operations", "⚡"),
             ("Diagnostics", "◉"),
             ("Connection", "⇄"),
+            ("Network", "⌁"),
         ):
             button = tk.Button(
                 self.sidebar,
@@ -452,6 +455,35 @@ class ESPDevLinkGUI(tk.Tk):
                  bg=CARD, fg=MUTED, font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(0, 14))
         self._sync_connection_mode_status()
 
+    def _build_network_page(self) -> None:
+        page = tk.Frame(self.content, bg=BG)
+        self.pages["Network"] = page
+
+        tk.Label(page, text="Network", bg=BG, fg=TEXT,
+                 font=("Segoe UI", 22, "bold")).pack(anchor="w", padx=26, pady=(24, 4))
+        tk.Label(page, text="Windows host and ESP32 network information.",
+                 bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", padx=26, pady=(0, 18))
+
+        panel = self._panel(page, "HOST NETWORK")
+        panel.pack(fill="x", padx=26)
+        self.network_vars = {}
+        for key, label in (("hostname", "Computer Name"), ("ip", "LAN IP"), ("mdns", "mDNS"),
+                           ("esp32", "ESP32 Target"), ("mode", "Connection Mode")):
+            self.network_vars[key] = self._info_row(panel, label, "—")
+
+        actions = tk.Frame(panel, bg=CARD)
+        actions.pack(fill="x", padx=14, pady=(12, 14))
+        ttk.Button(actions, text="Refresh Network Info", command=self.refresh_network_page).pack(side="left")
+        ttk.Button(actions, text="Open ESP32 Interface", command=self.open_esp32).pack(side="left", padx=8)
+
+        note = self._panel(page, "NETWORK NOTES")
+        note.pack(fill="x", padx=26, pady=18)
+        tk.Label(note,
+                 text="The ESP32 manages its own Wi-Fi connection. This page shows the Windows host's view of the network and the configured ESP32 target; Wi-Fi credentials remain in the ESP32 configuration.",
+                 bg=CARD, fg=MUTED, justify="left", wraplength=850,
+                 font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(2, 14))
+        self.refresh_network_page()
+
     def _build_footer(self) -> None:
         footer = tk.Frame(self, bg="#0e1725", height=30)
         footer.pack(fill="x")
@@ -715,6 +747,40 @@ class ESPDevLinkGUI(tk.Tk):
         except queue.Empty:
             pass
         self.after(100, self._poll_output)
+
+    def refresh_network_page(self) -> None:
+        try:
+            hostname = socket.gethostname()
+            addresses = socket.getaddrinfo(hostname, None, socket.AF_INET)
+            ips = []
+            for item in addresses:
+                ip = item[4][0]
+                if ip not in ips and not ip.startswith("127."):
+                    ips.append(ip)
+            ip = ", ".join(ips) if ips else "No LAN address found"
+        except OSError as exc:
+            hostname = socket.gethostname()
+            ip = f"Unavailable ({exc})"
+        try:
+            from .config import ESP32_URL
+            esp32_url = ESP32_URL
+        except Exception:
+            esp32_url = "Not configured"
+        mode = self.connection_mode.get().upper()
+        self.network_vars["hostname"].set(hostname)
+        self.network_vars["ip"].set(ip)
+        self.network_vars["mdns"].set(f"{hostname}.local")
+        self.network_vars["esp32"].set(esp32_url)
+        self.network_vars["mode"].set(mode)
+
+    def open_esp32(self) -> None:
+        try:
+            from .config import ESP32_URL
+            url = ESP32_URL
+        except Exception:
+            url = "http://steamlink.local/"
+        webbrowser.open(url)
+        self._log(f"Opened ESP32 interface: {url}")
 
     def _sync_connection_mode_status(self) -> None:
         mode = self.connection_mode.get().upper()
