@@ -43,25 +43,30 @@ PURPLE = "#9257ff"
 GREEN = "#49e39b"
 YELLOW = "#f4c84a"
 RED = "#ff6475"
+FONT = "Inter"
 
 
 class SteamButton(tk.Canvas):
-    """SteamLink-inspired rounded button with a purple gradient accent."""
+    """SteamLink.local-style rounded button with matching colors and typography."""
+
     def __init__(self, parent, text="", command=None, accent=False, **kwargs):
         self._label = text
         self._command = command
         self._accent = accent
         self._disabled = False
         self._hover = False
+        width = kwargs.pop("width", max(150, len(text) * 8 + 36))
+        height = kwargs.pop("height", 44)
         super().__init__(
             parent,
-            height=42,
-            width=max(150, len(text) * 8 + 34),
+            width=width,
+            height=height,
             bd=0,
             highlightthickness=0,
             relief="flat",
             bg=kwargs.pop("bg", parent.cget("bg")),
             cursor="hand2",
+            **kwargs,
         )
         self.bind("<Configure>", lambda _e: self._draw())
         self.bind("<Enter>", self._on_enter)
@@ -74,52 +79,55 @@ class SteamButton(tk.Canvas):
         a = a.lstrip("#")
         b = b.lstrip("#")
         return "#{:02x}{:02x}{:02x}".format(
-            int(int(a[0:2], 16) * (1-t) + int(b[0:2], 16) * t),
-            int(int(a[2:4], 16) * (1-t) + int(b[2:4], 16) * t),
-            int(int(a[4:6], 16) * (1-t) + int(b[4:6], 16) * t),
+            int(int(a[0:2], 16) * (1 - t) + int(b[0:2], 16) * t),
+            int(int(a[2:4], 16) * (1 - t) + int(b[2:4], 16) * t),
+            int(int(a[4:6], 16) * (1 - t) + int(b[4:6], 16) * t),
         )
 
+    def _rounded_rect(self, x1, y1, x2, y2, radius, fill):
+        self.create_rectangle(x1 + radius, y1, x2 - radius, y2, fill=fill, outline="")
+        self.create_rectangle(x1, y1 + radius, x2, y2 - radius, fill=fill, outline="")
+        for box, start in (
+            ((x1, y1, x1 + 2 * radius, y1 + 2 * radius), 90),
+            ((x2 - 2 * radius, y1, x2, y1 + 2 * radius), 0),
+            ((x1, y2 - 2 * radius, x1 + 2 * radius, y2), 180),
+            ((x2 - 2 * radius, y2 - 2 * radius, x2, y2), 270),
+        ):
+            self.create_arc(*box, start=start, extent=90, fill=fill, outline="")
+
     def _draw(self):
-        w, h = max(20, self.winfo_width()), max(20, self.winfo_height())
+        w = max(40, self.winfo_width())
+        h = max(30, self.winfo_height())
         self.delete("all")
-        radius = min(13, h // 2 - 1)
+        radius = min(14, h // 2 - 1)
+        x1, y1, x2, y2 = 1, 1, w - 1, h - 1
+
         if self._accent and not self._disabled:
-            left, right = BLUE, PURPLE
+            left, right = "#6476ff", "#9257ff"
             if self._hover:
-                left, right = "#7180ff", "#a267ff"
-            for x in range(w):
-                t = x / max(1, w - 1)
-                color = self._mix(left, right, t)
-                self.create_line(x, 1, x, h - 2, fill=color)
-            # Restore rounded corners by painting the outside corners with the parent background.
-            bg = self.cget("bg")
-            self.create_arc(0, 0, radius*2, radius*2, start=90, extent=90, fill=bg, outline=bg)
-            self.create_arc(w-radius*2, 0, w, radius*2, start=0, extent=90, fill=bg, outline=bg)
-            self.create_arc(0, h-radius*2, radius*2, h, start=180, extent=90, fill=bg, outline=bg)
-            self.create_arc(w-radius*2, h-radius*2, w, h, start=270, extent=90, fill=bg, outline=bg)
-            # Inner rounded shape.
-            self.create_arc(1, 1, radius*2+1, radius*2+1, start=90, extent=90, fill=left, outline=left)
-            self.create_arc(w-radius*2-1, 1, w-1, radius*2+1, start=0, extent=90, fill=right, outline=right)
-            self.create_arc(1, h-radius*2-1, radius*2+1, h-1, start=180, extent=90, fill=left, outline=left)
-            self.create_arc(w-radius*2-1, h-radius*2-1, w-1, h-1, start=270, extent=90, fill=right, outline=right)
-            text_color = "white"
+                left, right = "#6d7cff", "#9b5dff"
+            # The web client uses a left-to-right indigo/purple gradient.
+            # Paint the rounded body first, then the interior gradient.
+            self._rounded_rect(x1, y1, x2, y2, radius, left)
+            for x in range(x1 + radius, x2 - radius + 1):
+                t = (x - (x1 + radius)) / max(1, (x2 - x1) - 2 * radius)
+                self.create_line(x, y1 + 1, x, y2 - 1, fill=self._mix(left, right, t))
+            # Fill the curved end caps with the matching endpoint colors.
+            self.create_arc(x1, y1, x1 + 2 * radius, y2, start=90, extent=180, fill=left, outline=left)
+            self.create_arc(x2 - 2 * radius, y1, x2, y2, start=270, extent=180, fill=right, outline=right)
+            text_color = "#ffffff"
+            font = ("Inter", 10, "bold")
         else:
-            fill = "#1a1f2b" if not self._hover else "#242b3c"
-            if self._disabled:
-                fill = "#121620"
-            # Rounded dark secondary button.
-            self.create_rectangle(radius, 1, w-radius, h-2, fill=fill, outline=fill)
-            self.create_rectangle(1, radius, w-2, h-radius, fill=fill, outline=fill)
-            for box, start, extent in (
-                ((1,1,radius*2,radius*2),90,90),
-                ((w-radius*2,1,w-1,radius*2),0,90),
-                ((1,h-radius*2,radius*2,h-1),180,90),
-                ((w-radius*2,h-radius*2,w-1,h-1),270,90),
-            ):
-                self.create_arc(*box, start=start, extent=extent, fill=fill, outline=fill)
-            text_color = "#666f82" if self._disabled else "#dfe4ef"
-        self.create_text(w/2, h/2, text=self._label, fill=text_color,
-                         font=("Segoe UI", 10, "bold" if self._accent else "normal"))
+            fill = "#ffffff08" if not self._disabled else "#ffffff05"
+            if self._hover and not self._disabled:
+                fill = "#ffffff10"
+            self._rounded_rect(x1, y1, x2, y2, radius, fill)
+            # Subtle border in the same translucent style as .secondary.
+            self.create_arc(x1, y1, x1 + 2 * radius, y2, start=90, extent=180, outline="#ffffff12")
+            self.create_arc(x2 - 2 * radius, y1, x2, y2, start=270, extent=180, outline="#ffffff12")
+            text_color = "#727d91" if self._disabled else "#c8cfdd"
+            font = ("Inter", 10, "bold")
+        self.create_text(w / 2, h / 2, text=self._label, fill=text_color, font=font)
 
     def _on_enter(self, _event):
         self._hover = True
@@ -140,8 +148,8 @@ class SteamButton(tk.Canvas):
             self._label = text
         if state is not None:
             self._disabled = state == "disabled"
-            self.configure(cursor="arrow" if self._disabled else "hand2")
-        if kwargs:
+            super().configure(cursor="arrow" if self._disabled else "hand2")
+        if kwargs or cnf:
             super().configure(cnf or {}, **kwargs)
         self._draw()
 
@@ -180,12 +188,12 @@ class ESPDevLinkGUI(tk.Tk):
         )
         style.configure(
             "Action.TButton",
-            font=("Segoe UI", 10),
+            font=("Inter", 10),
             padding=(14, 9),
         )
         style.configure(
             "Accent.TButton",
-            font=("Segoe UI", 10, "bold"),
+            font=("Inter", 10, "bold"),
             padding=(16, 10),
         )
         style.map("TButton", background=[("active", "#202a43")])
@@ -235,18 +243,38 @@ class ESPDevLinkGUI(tk.Tk):
         brand.pack(side="left", padx=24, fill="y")
         self.header_logo = tk.Canvas(brand, width=42, height=42, bg=BG, bd=0, highlightthickness=0)
         self.header_logo.pack(side="left", padx=(0, 12))
-        # Match the steamlink.local icon: purple gradient tile with a white rounded-square mark.
-        for x in range(2, 40):
-            t = (x - 2) / 37
-            c = SteamButton._mix(BLUE, PURPLE, t)
-            self.header_logo.create_line(x, 2, x, 40, fill=c, width=1)
-        self.header_logo.create_rectangle(2, 8, 40, 34, fill=BLUE, outline=BLUE)
-        self.header_logo.create_arc(2, 2, 40, 40, start=90, extent=90, outline=BLUE, width=8)
-        self.header_logo.create_arc(2, 2, 40, 40, start=0, extent=90, outline=PURPLE, width=8)
-        self.header_logo.create_arc(2, 2, 40, 40, start=180, extent=90, outline=BLUE, width=8)
-        self.header_logo.create_arc(2, 2, 40, 40, start=270, extent=90, outline=PURPLE, width=8)
-        self.header_logo.create_rectangle(12, 12, 30, 30, outline="white", width=3)
-        self.header_logo.create_arc(12, 12, 30, 30, start=0, extent=360, outline="white", width=3)
+
+        # Match data/favicon.svg: 42 px rounded gradient tile with the same
+        # white rounded-square mark and four outward connector strokes.
+        # Tkinter has no CSS gradients, so draw the gradient one pixel at a time.
+        for x in range(42):
+            t = x / 41
+            self.header_logo.create_line(
+                x, 0, x, 42, fill=SteamButton._mix("#6476ff", "#9257ff", t)
+            )
+        # Clip the four corners to the favicon's 16/64 radius (scaled to 10.5 px).
+        clip = BG
+        self.header_logo.create_arc(0, 0, 21, 21, start=90, extent=90, fill=clip, outline=clip)
+        self.header_logo.create_arc(21, 0, 42, 21, start=0, extent=90, fill=clip, outline=clip)
+        self.header_logo.create_arc(0, 21, 21, 42, start=180, extent=90, fill=clip, outline=clip)
+        self.header_logo.create_arc(21, 21, 42, 42, start=270, extent=90, fill=clip, outline=clip)
+        # Repaint the center so the clipped corners do not affect the mark.
+        for x in range(11, 31):
+            t = x / 41
+            self.header_logo.create_line(
+                x, 11, x, 31, fill=SteamButton._mix("#6476ff", "#9257ff", t)
+            )
+        # Four white connector strokes from the original SVG.
+        self.header_logo.create_line(21, 6.6, 21, 12.5, fill="white", width=3, capstyle="round")
+        self.header_logo.create_line(21, 29.5, 21, 35.4, fill="white", width=3, capstyle="round")
+        self.header_logo.create_line(6.6, 21, 12.5, 21, fill="white", width=3, capstyle="round")
+        self.header_logo.create_line(29.5, 21, 35.4, 21, fill="white", width=3, capstyle="round")
+        # Rounded-square center mark.
+        self.header_logo.create_arc(12.5, 12.5, 29.5, 29.5, start=0, extent=360, outline="white", width=3.2)
+        self.header_logo.create_line(16, 12.8, 26, 12.8, fill="white", width=3.2)
+        self.header_logo.create_line(16, 29.2, 26, 29.2, fill="white", width=3.2)
+        self.header_logo.create_line(12.8, 16, 12.8, 26, fill="white", width=3.2)
+        self.header_logo.create_line(29.2, 16, 29.2, 26, fill="white", width=3.2)
         titles = tk.Frame(brand, bg=BG)
         titles.pack(side="left", pady=13)
         tk.Label(
@@ -254,14 +282,14 @@ class ESPDevLinkGUI(tk.Tk):
             text="ESPDevLink Host",
             bg=BG,
             fg=TEXT,
-            font=("Segoe UI", 18, "bold"),
+            font=("Inter", 18, "bold"),
         ).pack(anchor="w")
         tk.Label(
             titles,
             text="Windows host control center",
             bg=BG,
             fg=MUTED,
-            font=("Segoe UI", 9),
+            font=("Inter", 9),
         ).pack(anchor="w")
 
         self.header_status = tk.Label(
@@ -269,7 +297,7 @@ class ESPDevLinkGUI(tk.Tk):
             text="● HOST STOPPED",
             bg=BG,
             fg=RED,
-            font=("Segoe UI", 10, "bold"),
+            font=("Inter", 10, "bold"),
         )
         self.header_status.pack(side="right", padx=24)
 
@@ -279,7 +307,7 @@ class ESPDevLinkGUI(tk.Tk):
             text="CONTROL CENTER",
             bg=SIDEBAR,
             fg=MUTED,
-            font=("Segoe UI", 8, "bold"),
+            font=("Inter", 8, "bold"),
         ).pack(anchor="w", padx=20, pady=(24, 10))
 
         for name, icon in (
@@ -301,7 +329,7 @@ class ESPDevLinkGUI(tk.Tk):
                 fg=MUTED,
                 activebackground="#17365a",
                 activeforeground=TEXT,
-                font=("Segoe UI", 10),
+                font=("Inter", 10),
                 padx=12,
                 pady=11,
                 cursor="hand2",
@@ -317,7 +345,7 @@ class ESPDevLinkGUI(tk.Tk):
             text="QUICK ACCESS",
             bg=SIDEBAR,
             fg=MUTED,
-            font=("Segoe UI", 8, "bold"),
+            font=("Inter", 8, "bold"),
         ).pack(anchor="w", padx=20, pady=(0, 8))
 
         for label, command in (
@@ -334,7 +362,7 @@ class ESPDevLinkGUI(tk.Tk):
                 fg=TEXT,
                 activebackground="#17365a",
                 activeforeground=TEXT,
-                font=("Segoe UI", 9),
+                font=("Inter", 9),
                 padx=20,
                 pady=7,
                 cursor="hand2",                command=command,
@@ -360,14 +388,14 @@ class ESPDevLinkGUI(tk.Tk):
             text="Dashboard",
             bg=BG,
             fg=TEXT,
-            font=("Segoe UI", 22, "bold"),
+            font=("Inter", 22, "bold"),
         ).pack(side="left")
         tk.Label(
             title,
             text="Live ESPDevLink host overview",
             bg=BG,
             fg=MUTED,
-            font=("Segoe UI", 10),
+            font=("Inter", 10),
         ).pack(side="left", padx=14, pady=(8, 0))
 
         self.host_card = self._status_card(page, "HOST SERVER", "Stopped", RED)
@@ -415,15 +443,15 @@ class ESPDevLinkGUI(tk.Tk):
             actions, text="▶  START HOST", style="Accent.TButton", command=self.start_host
         )
         self.dashboard_start.pack(side="left", padx=(0, 8))
-        self.dashboard_stop = ttk.Button(
+        self.dashboard_stop = self._steam_button(
             actions, text="■  STOP HOST", style="Action.TButton", command=self.stop_host
         )
         self.dashboard_stop.pack(side="left", padx=8)
-        ttk.Button(
+        self._steam_button(
             actions, text="↗  OPEN WEB INTERFACE", style="Action.TButton", command=self.open_web
         ).pack(side="left", padx=8)
         self.last_update = tk.Label(
-            actions, text="Waiting for host...", bg=BG, fg=MUTED, font=("Segoe UI", 9)
+            actions, text="Waiting for host...", bg=BG, fg=MUTED, font=("Inter", 9)
         )
         self.last_update.pack(side="right")
 
@@ -432,14 +460,14 @@ class ESPDevLinkGUI(tk.Tk):
         self.pages["Operations"] = page
 
         tk.Label(
-            page, text="Operations", bg=BG, fg=TEXT, font=("Segoe UI", 22, "bold")
+            page, text="Operations", bg=BG, fg=TEXT, font=("Inter", 22, "bold")
         ).pack(anchor="w", padx=26, pady=(24, 4))
         tk.Label(
             page,
             text="Everything from the original ESPDevLink launcher, now in one place.",
             bg=BG,
             fg=MUTED,
-            font=("Segoe UI", 10),
+            font=("Inter", 10),
         ).pack(anchor="w", padx=26, pady=(0, 18))
 
         columns = tk.Frame(page, bg=BG)
@@ -454,7 +482,7 @@ class ESPDevLinkGUI(tk.Tk):
             ("▣  Start ESPLink Simulator", self.start_simulator),
             ("↗  Open Local Web Interface", self.open_web),
         ):
-            ttk.Button(host_panel, text=text, command=command, style="Action.TButton").pack(
+            self._steam_button(host_panel, text=text, command=command, style="Action.TButton").pack(
                 fill="x", pady=5
             )
 
@@ -466,7 +494,7 @@ class ESPDevLinkGUI(tk.Tk):
             ("↓  Install Host Dependencies", self.install_dependencies),
             ("🐍  Create Virtual Environment", self.create_venv),
         ):
-            ttk.Button(tools_panel, text=text, command=command, style="Action.TButton").pack(
+            self._steam_button(tools_panel, text=text, command=command, style="Action.TButton").pack(
                 fill="x", pady=5
             )
 
@@ -479,14 +507,14 @@ class ESPDevLinkGUI(tk.Tk):
         self.pages["Diagnostics"] = page
 
         tk.Label(
-            page, text="Diagnostics", bg=BG, fg=TEXT, font=("Segoe UI", 22, "bold")
+            page, text="Diagnostics", bg=BG, fg=TEXT, font=("Inter", 22, "bold")
         ).pack(anchor="w", padx=26, pady=(24, 4))
         tk.Label(
             page,
             text="Live checks are read from the local host API when the server is running.",
             bg=BG,
             fg=MUTED,
-            font=("Segoe UI", 10),
+            font=("Inter", 10),
         ).pack(anchor="w", padx=26, pady=(0, 16))
 
         panel = self._panel(page, "HEALTH CHECKS")
@@ -502,14 +530,14 @@ class ESPDevLinkGUI(tk.Tk):
         ):
             row = tk.Frame(panel, bg=CARD)
             row.pack(fill="x", pady=5)
-            tk.Label(row, text=label, bg=CARD, fg=TEXT, font=("Segoe UI", 10)).pack(side="left")
+            tk.Label(row, text=label, bg=CARD, fg=TEXT, font=("Inter", 10)).pack(side="left")
             var = tk.StringVar(value="Waiting...")
             self.diagnostic_vars[key] = var
             tk.Label(
-                row, textvariable=var, bg=CARD, fg=MUTED, font=("Segoe UI", 10, "bold")
+                row, textvariable=var, bg=CARD, fg=MUTED, font=("Inter", 10, "bold")
             ).pack(side="right")
 
-        ttk.Button(
+        self._steam_button(
             page,
             text="◉  RUN FULL DIAGNOSTICS",
             style="Accent.TButton",
@@ -536,14 +564,14 @@ class ESPDevLinkGUI(tk.Tk):
         self.pages["Connection"] = page
 
         tk.Label(
-            page, text="Connection", bg=BG, fg=TEXT, font=("Segoe UI", 22, "bold")
+            page, text="Connection", bg=BG, fg=TEXT, font=("Inter", 22, "bold")
         ).pack(anchor="w", padx=26, pady=(24, 4))
         tk.Label(
             page,
             text="Choose how the browser client should route its next connection.",
             bg=BG,
             fg=MUTED,
-            font=("Segoe UI", 10),
+            font=("Inter", 10),
         ).pack(anchor="w", padx=26, pady=(0, 18))
 
         panel = self._panel(page, "CONNECTION MODE")
@@ -553,7 +581,7 @@ class ESPDevLinkGUI(tk.Tk):
             panel,
             text="The selected mode is passed to the web interface as a connection-mode parameter.\n"
                  "Changing the host process mode affects its heartbeat display; it does not change ESP32 firmware settings.",
-            bg=CARD, fg=MUTED, justify="left", font=("Segoe UI", 9),
+            bg=CARD, fg=MUTED, justify="left", font=("Inter", 9),
         ).pack(anchor="w", padx=16, pady=(0, 14))
 
         modes = (
@@ -567,24 +595,24 @@ class ESPDevLinkGUI(tk.Tk):
             tk.Radiobutton(
                 row, text=mode, variable=self.connection_mode, value=mode,
                 bg=CARD, fg=TEXT, activebackground=CARD, activeforeground=TEXT,
-                selectcolor=SIDEBAR, font=("Segoe UI", 10, "bold"),
+                selectcolor=SIDEBAR, font=("Inter", 10, "bold"),
             ).pack(side="left")
-            tk.Label(row, text=description, bg=CARD, fg=MUTED, font=("Segoe UI", 9)).pack(
+            tk.Label(row, text=description, bg=CARD, fg=MUTED, font=("Inter", 9)).pack(
                 side="left", padx=12
             )
 
         actions = tk.Frame(panel, bg=CARD)
         actions.pack(fill="x", padx=12, pady=(14, 12))
-        ttk.Button(actions, text="Open Selected Mode", style="Accent.TButton", command=self.open_selected_mode).pack(side="left")
-        ttk.Button(actions, text="Restart Host With Mode", style="Action.TButton", command=self.restart_host_with_mode).pack(side="left", padx=8)
+        self._steam_button(actions, text="Open Selected Mode", style="Accent.TButton", command=self.open_selected_mode).pack(side="left")
+        self._steam_button(actions, text="Restart Host With Mode", style="Action.TButton", command=self.restart_host_with_mode).pack(side="left", padx=8)
 
         status = self._panel(page, "CURRENT HOST SETTING")
         status.pack(fill="x", padx=26, pady=18)
         self.connection_mode_status = tk.StringVar(value="AUTOMATIC")
         tk.Label(status, textvariable=self.connection_mode_status, bg=CARD, fg=TEXT,
-                 font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=16, pady=(2, 4))
+                 font=("Inter", 15, "bold")).pack(anchor="w", padx=16, pady=(2, 4))
         tk.Label(status, text="This is the mode that will be inherited by newly started host processes.",
-                 bg=CARD, fg=MUTED, font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(0, 14))
+                 bg=CARD, fg=MUTED, font=("Inter", 9)).pack(anchor="w", padx=16, pady=(0, 14))
         self._sync_connection_mode_status()
 
     def _build_network_page(self) -> None:
@@ -592,9 +620,9 @@ class ESPDevLinkGUI(tk.Tk):
         self.pages["Network"] = page
 
         tk.Label(page, text="Network", bg=BG, fg=TEXT,
-                 font=("Segoe UI", 22, "bold")).pack(anchor="w", padx=26, pady=(24, 4))
+                 font=("Inter", 22, "bold")).pack(anchor="w", padx=26, pady=(24, 4))
         tk.Label(page, text="Windows host and ESP32 network information.",
-                 bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", padx=26, pady=(0, 18))
+                 bg=BG, fg=MUTED, font=("Inter", 10)).pack(anchor="w", padx=26, pady=(0, 18))
 
         panel = self._panel(page, "HOST NETWORK")
         panel.pack(fill="x", padx=26)
@@ -605,15 +633,15 @@ class ESPDevLinkGUI(tk.Tk):
 
         actions = tk.Frame(panel, bg=CARD)
         actions.pack(fill="x", padx=14, pady=(12, 14))
-        ttk.Button(actions, text="↻  REFRESH NETWORK", command=self.refresh_network_page).pack(side="left")
-        ttk.Button(actions, text="↗  OPEN ESP32 INTERFACE", command=self.open_esp32).pack(side="left", padx=8)
+        self._steam_button(actions, text="↻  REFRESH NETWORK", command=self.refresh_network_page).pack(side="left")
+        self._steam_button(actions, text="↗  OPEN ESP32 INTERFACE", command=self.open_esp32).pack(side="left", padx=8)
 
         note = self._panel(page, "NETWORK NOTES")
         note.pack(fill="x", padx=26, pady=18)
         tk.Label(note,
                  text="The ESP32 manages its own Wi-Fi connection. This page shows the Windows host's view of the network and the configured ESP32 target; Wi-Fi credentials remain in the ESP32 configuration.",
                  bg=CARD, fg=MUTED, justify="left", wraplength=850,
-                 font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(2, 14))
+                 font=("Inter", 9)).pack(anchor="w", padx=16, pady=(2, 14))
         self.refresh_network_page()
 
     def _build_scheduler_page(self) -> None:
@@ -621,25 +649,25 @@ class ESPDevLinkGUI(tk.Tk):
         self.pages["Scheduler"] = page
 
         tk.Label(page, text="Scheduler", bg=BG, fg=TEXT,
-                 font=("Segoe UI", 22, "bold")).pack(anchor="w", padx=26, pady=(24, 4))
+                 font=("Inter", 22, "bold")).pack(anchor="w", padx=26, pady=(24, 4))
         tk.Label(page, text="Manage the existing Windows daily ESPDevLink host task.",
-                 bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", padx=26, pady=(0, 18))
+                 bg=BG, fg=MUTED, font=("Inter", 10)).pack(anchor="w", padx=26, pady=(0, 18))
 
         panel = self._panel(page, "DAILY START")
         panel.pack(fill="x", padx=26)
         row = tk.Frame(panel, bg=CARD)
         row.pack(fill="x", padx=14, pady=8)
         tk.Label(row, text="Start time (24-hour HH:MM)", bg=CARD, fg=MUTED,
-                 font=("Segoe UI", 9)).pack(side="left")
+                 font=("Inter", 9)).pack(side="left")
         self.schedule_time = tk.StringVar(value="08:00")
         ttk.Entry(row, textvariable=self.schedule_time, width=10).pack(side="left", padx=12)
 
         actions = tk.Frame(panel, bg=CARD)
         actions.pack(fill="x", padx=14, pady=(8, 14))
-        ttk.Button(actions, text="◷  SCHEDULE DAILY START", style="Accent.TButton",
+        self._steam_button(actions, text="◷  SCHEDULE DAILY START", style="Accent.TButton",
                    command=self.schedule_host).pack(side="left")
-        ttk.Button(actions, text="■  CANCEL SCHEDULE", command=self.cancel_schedule).pack(side="left", padx=8)
-        ttk.Button(actions, text="◉  SHOW SCHEDULE", command=self.show_schedule).pack(side="left")
+        self._steam_button(actions, text="■  CANCEL SCHEDULE", command=self.cancel_schedule).pack(side="left", padx=8)
+        self._steam_button(actions, text="◉  SHOW SCHEDULE", command=self.show_schedule).pack(side="left")
 
         self.schedule_output = tk.Text(panel, height=8, bg="#08111b", fg="#b9c9da",
                                        relief="flat", font=("Consolas", 9), wrap="word")
@@ -652,9 +680,9 @@ class ESPDevLinkGUI(tk.Tk):
         self.pages["Streaming"] = page
 
         tk.Label(page, text="Streaming", bg=BG, fg=TEXT,
-                 font=("Segoe UI", 22, "bold")).pack(anchor="w", padx=26, pady=(24, 4))
+                 font=("Inter", 22, "bold")).pack(anchor="w", padx=26, pady=(24, 4))
         tk.Label(page, text="Monitor the active WebRTC stream and control its lifecycle.",
-                 bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", padx=26, pady=(0, 18))
+                 bg=BG, fg=MUTED, font=("Inter", 10)).pack(anchor="w", padx=26, pady=(0, 18))
 
         panel = self._panel(page, "STREAM CONTROL")
         panel.pack(fill="x", padx=26)
@@ -665,10 +693,10 @@ class ESPDevLinkGUI(tk.Tk):
             self.stream_control_vars[key] = self._info_row(panel, label, "—")
         actions = tk.Frame(panel, bg=CARD)
         actions.pack(fill="x", padx=14, pady=(12, 14))
-        ttk.Button(actions, text="▶  START STREAM", style="Accent.TButton",
+        self._steam_button(actions, text="▶  START STREAM", style="Accent.TButton",
                    command=self.start_stream).pack(side="left")
-        ttk.Button(actions, text="■  STOP STREAM", command=self.stop_stream).pack(side="left", padx=8)
-        ttk.Button(actions, text="↻  REFRESH", command=self.refresh_stream_page).pack(side="left")
+        self._steam_button(actions, text="■  STOP STREAM", command=self.stop_stream).pack(side="left", padx=8)
+        self._steam_button(actions, text="↻  REFRESH", command=self.refresh_stream_page).pack(side="left")
 
         panel2 = self._panel(page, "WEBRTC")
         panel2.pack(fill="x", padx=26, pady=18)
@@ -679,7 +707,7 @@ class ESPDevLinkGUI(tk.Tk):
         self.refresh_stream_page()
 
     def _steam_button(self, parent, text, command, style="", **kwargs):
-        accent = style == "Accent.TButton"
+        accent = style == "Accent.TButton" or kwargs.pop("accent", False)
         return SteamButton(parent, text=text, command=command, accent=accent, **kwargs)
 
     def _build_footer(self) -> None:
@@ -687,7 +715,7 @@ class ESPDevLinkGUI(tk.Tk):
         footer.pack(fill="x")
         footer.pack_propagate(False)
         self.footer_status = tk.Label(
-            footer, text="●  Ready", bg=BG, fg=GREEN, font=("Segoe UI", 8)
+            footer, text="●  Ready", bg=BG, fg=GREEN, font=("Inter", 8)
         )
         self.footer_status.pack(side="left", padx=18)
         tk.Label(
@@ -695,7 +723,7 @@ class ESPDevLinkGUI(tk.Tk):
             text="ESPDevLink Host Control Center",
             bg=BG,
             fg=MUTED,
-            font=("Segoe UI", 8),
+            font=("Inter", 8),
         ).pack(side="right", padx=18)
 
     def _panel(self, parent: tk.Widget, title: str) -> tk.Frame:
@@ -705,7 +733,7 @@ class ESPDevLinkGUI(tk.Tk):
             text=title,
             bg=CARD,
             fg=MUTED,
-            font=("Segoe UI", 8, "bold"),
+            font=("Inter", 8, "bold"),
         ).pack(anchor="w", padx=16, pady=(13, 9))
         return panel
 
@@ -713,11 +741,11 @@ class ESPDevLinkGUI(tk.Tk):
         card = tk.Frame(parent, bg=CARD, highlightbackground=BORDER, highlightthickness=1, height=96)
         card.pack_propagate(False)
         tk.Label(
-            card, text=title, bg=CARD, fg=MUTED, font=("Segoe UI", 8, "bold")
+            card, text=title, bg=CARD, fg=MUTED, font=("Inter", 8, "bold")
         ).pack(anchor="w", padx=14, pady=(13, 5))
         var = tk.StringVar(value=f"●  {value}")
         label = tk.Label(
-            card, textvariable=var, bg=CARD, fg=color, font=("Segoe UI", 11, "bold")
+            card, textvariable=var, bg=CARD, fg=color, font=("Inter", 11, "bold")
         )
         label.pack(anchor="w", padx=14)
         card.status_var = var  # type: ignore[attr-defined]
@@ -727,9 +755,9 @@ class ESPDevLinkGUI(tk.Tk):
     def _info_row(self, parent: tk.Frame, label: str, value: str) -> tk.StringVar:
         row = tk.Frame(parent, bg=CARD)
         row.pack(fill="x", padx=14, pady=5)
-        tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(row, text=label, bg=CARD, fg=MUTED, font=("Inter", 9)).pack(side="left")
         var = tk.StringVar(value=value)
-        tk.Label(row, textvariable=var, bg=CARD, fg=TEXT, font=("Segoe UI", 9, "bold")).pack(
+        tk.Label(row, textvariable=var, bg=CARD, fg=TEXT, font=("Inter", 9, "bold")).pack(
             side="right"
         )
         return var
@@ -737,7 +765,7 @@ class ESPDevLinkGUI(tk.Tk):
     def _build_log(self, parent: tk.Frame) -> None:
         top = tk.Frame(parent, bg=CARD)
         top.pack(fill="x", padx=14, pady=(0, 6))
-        ttk.Button(top, text="Clear", command=self.clear_log).pack(side="right")
+        self._steam_button(top, text="Clear", command=self.clear_log).pack(side="right")
         self.log = tk.Text(
             parent,
             height=10,
