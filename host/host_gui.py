@@ -106,6 +106,7 @@ class ESPDevLinkGUI(tk.Tk):
         self._build_diagnostics_page()
         self._build_connection_page()
         self._build_network_page()
+        self._build_scheduler_page()
         self.show_page("Dashboard")
 
         self._build_footer()
@@ -165,6 +166,7 @@ class ESPDevLinkGUI(tk.Tk):
             ("Diagnostics", "◉"),
             ("Connection", "⇄"),
             ("Network", "⌁"),
+            ("Scheduler", "◷"),
         ):
             button = tk.Button(
                 self.sidebar,
@@ -484,6 +486,37 @@ class ESPDevLinkGUI(tk.Tk):
                  font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(2, 14))
         self.refresh_network_page()
 
+    def _build_scheduler_page(self) -> None:
+        page = tk.Frame(self.content, bg=BG)
+        self.pages["Scheduler"] = page
+
+        tk.Label(page, text="Scheduler", bg=BG, fg=TEXT,
+                 font=("Segoe UI", 22, "bold")).pack(anchor="w", padx=26, pady=(24, 4))
+        tk.Label(page, text="Manage the existing Windows daily ESPDevLink host task.",
+                 bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(anchor="w", padx=26, pady=(0, 18))
+
+        panel = self._panel(page, "DAILY START")
+        panel.pack(fill="x", padx=26)
+        row = tk.Frame(panel, bg=CARD)
+        row.pack(fill="x", padx=14, pady=8)
+        tk.Label(row, text="Start time (24-hour HH:MM)", bg=CARD, fg=MUTED,
+                 font=("Segoe UI", 9)).pack(side="left")
+        self.schedule_time = tk.StringVar(value="08:00")
+        ttk.Entry(row, textvariable=self.schedule_time, width=10).pack(side="left", padx=12)
+
+        actions = tk.Frame(panel, bg=CARD)
+        actions.pack(fill="x", padx=14, pady=(8, 14))
+        ttk.Button(actions, text="Schedule Daily Start", style="Accent.TButton",
+                   command=self.schedule_host).pack(side="left")
+        ttk.Button(actions, text="Cancel Schedule", command=self.cancel_schedule).pack(side="left", padx=8)
+        ttk.Button(actions, text="Show Schedule", command=self.show_schedule).pack(side="left")
+
+        self.schedule_output = tk.Text(panel, height=8, bg="#08111b", fg="#b9c9da",
+                                       relief="flat", font=("Consolas", 9), wrap="word")
+        self.schedule_output.pack(fill="both", expand=True, padx=14, pady=(0, 14))
+        self.schedule_output.insert("end", "No schedule query run yet.\n")
+        self.schedule_output.configure(state="disabled")
+
     def _build_footer(self) -> None:
         footer = tk.Frame(self, bg="#0e1725", height=30)
         footer.pack(fill="x")
@@ -747,6 +780,33 @@ class ESPDevLinkGUI(tk.Tk):
         except queue.Empty:
             pass
         self.after(100, self._poll_output)
+
+    def _schedule_command(self, args: list[str], label: str) -> None:
+        self._start_process(args, label)
+
+    def schedule_host(self) -> None:
+        time = self.schedule_time.get().strip()
+        import re
+        if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", time):
+            messagebox.showerror("ESPDevLink", "Enter a valid time in HH:MM format, such as 22:30.")
+            return
+        launcher = REPO_ROOT / "start_server.bat"
+        if not launcher.is_file():
+            messagebox.showerror("ESPDevLink", "start_server.bat was not found.")
+            return
+        command = f'"{launcher}" scheduled'
+        self._schedule_command(["schtasks", "/Create", "/TN", "ESPDevLink Host", "/SC", "DAILY",
+                                "/ST", time, "/TR", command, "/RL", "LIMITED", "/F"],
+                               f"Scheduling ESPDevLink daily at {time}")
+        self._log("The Windows Task Scheduler command was started.")
+
+    def cancel_schedule(self) -> None:
+        self._schedule_command(["schtasks", "/Delete", "/TN", "ESPDevLink Host", "/F"],
+                               "Cancelling ESPDevLink schedule")
+
+    def show_schedule(self) -> None:
+        self._start_process(["schtasks", "/Query", "/TN", "ESPDevLink Host", "/FO", "LIST"],
+                            "Reading ESPDevLink schedule")
 
     def refresh_network_page(self) -> None:
         try:
