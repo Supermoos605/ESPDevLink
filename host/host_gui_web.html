@@ -183,8 +183,8 @@ async function runAction(a){
 const target=a==="diagnostics"?"diagnosticsOut":a==="streamStart"||a==="streamStop"?"streamOut":"operationsOut";
 try{const result=await pywebview.api.action(a);$(target).textContent=result;await refresh()}catch(e){$(target).textContent="ERROR: "+e}
 }
-async function openWeb(){try{await pywebview.api.open_web()}catch(e){}}
-async function openEsp(){try{await pywebview.api.open_esp32()}catch(e){}}
+async function openWeb(){try{const r=await pywebview.api.open_web();await refreshOutput();return r}catch(e){return "ERROR: "+e}}
+async function openEsp(){try{const r=await pywebview.api.open_esp32();await refreshOutput();return r}catch(e){return "ERROR: "+e}}
 async function applyMode(){try{$("connectionOut").textContent=await pywebview.api.set_mode($("connectionMode").value);await refresh()}catch(e){$("connectionOut").textContent="ERROR: "+e}}
 async function schedule(){try{$("scheduleOut").textContent=await pywebview.api.schedule($("scheduleTime").value)}catch(e){$("scheduleOut").textContent="ERROR: "+e}}
 async function cancelSchedule(){try{$("scheduleOut").textContent=await pywebview.api.cancel_schedule()}catch(e){$("scheduleOut").textContent="ERROR: "+e}}
@@ -205,7 +205,7 @@ async function clearOutput(){try{await pywebview.api.clear_output();await refres
 async function refresh(){
 try{
 const r=await pywebview.api.status();lastStatus=r;
-const h=r.host||{},s=r.stream||{};
+const h=r.host||{}, hostInfo=h.host||{}, s=h.stream||{}, runtime=s.runtime||{};
 const online=!!r.host_online;
 $("gatewayStatus").className=online?"status":"status offline";
 $("gatewayStatus").innerHTML='<i class="dot"></i><span>'+(online?"Host online":"Host stopped")+'</span>';
@@ -217,7 +217,8 @@ rows("statusRows",{
 "LAN address":r.ip||"—",
 "mDNS":r.mdns||"—",
 "Connection mode":r.mode||"—",
-"Game":h.game||s.game||"—",
+"Game":hostInfo.game||"—",
+"Stream state":hostInfo.stream||"—",
 "Uptime":h.uptime_seconds!=null?Math.floor(h.uptime_seconds)+"s":"—"
 });
 rows("networkRows",{
@@ -228,13 +229,15 @@ rows("networkRows",{
 "Connection mode":r.mode||"—"
 });
 rows("streamRows",{
-"State":s.state||h.stream_state||"—",
-"Game":s.game||h.game||"—",
-"Quality":s.quality||"—",
-"FPS":s.fps||"—",
-"Resolution":s.resolution||"—",
-"Bitrate":s.bitrate||"—",
-"Health":s.health||h.stream_health||"—"
+"State":hostInfo.stream||"—",
+"Game":hostInfo.game||"—",
+"Quality":runtime.quality||"—",
+"FPS":runtime.fps||"—",
+"Resolution":runtime.resolution||"—",
+"Bitrate":runtime.bitrate||"—",
+"Health":runtime.health||"—",
+"Peers":s.peers!=null?s.peers:"—",
+"WebRTC peers":s.webrtc_peers!=null?s.webrtc_peers:"—"
 });
 }catch(e){
 $("gatewayStatus").className="status offline";
