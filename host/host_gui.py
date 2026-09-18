@@ -946,6 +946,194 @@ class ESPDevLinkGUI(tk.Tk):
             pass
         self.after(100, self._poll_output)
 
+    def start_host(self) -> None:
+        self._start_process([PYTHON, "-m", "host.host_server"], "Starting host server")
+
+    def start_heartbeat(self) -> None:
+        self._start_process([PYTHON, "-m", "host.network.heartbeat"], "Starting network heartbeat")
+
+    def start_simulator(self) -> None:
+        self._start_process([PYTHON, "simulator/esp_link_simulator.py"], "Starting ESPLink simulator")
+
+    def run_tests(self) -> None:
+        self._start_process([PYTHON, "-m", "pytest"], "Running ESPDevLink tests")
+
+    def install_dependencies(self) -> None:
+        self._start_process(
+            [PYTHON, "-m", "pip", "install", "-r", "requirements.txt"],
+            "Installing host dependencies",
+        )
+
+    def create_venv(self) -> None:
+        if (REPO_ROOT / ".venv" / "Scripts" / "python.exe").exists():
+            messagebox.showinfo("ESPDevLink", "The virtual environment already exists.")
+            return
+        self._start_process([PYTHON, "-m", "venv", ".venv"], "Creating virtual environment")
+
+    def run_diagnostics(self) -> None:
+        self.show_page("Diagnostics")
+        self._start_process([PYTHON, "-m", "host.run_host"], "Running host diagnostics")
+
+    def open_web(self) -> None:
+        webbrowser.open(HOST_URL)
+        self._log(f"Opened {HOST_URL}")
+
+    def stop_host(self) -> None:
+        if not self.process or self.process.poll() is not None:
+            self.dashboard_stop.configure(state="disabled")
+            return
+        self._log("Stopping current operation...")
+        self.process.terminate()
+        try:
+            self.process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.process.kill()
+        self.process = None
+        self.footer_status.configure(text="●  Host operation stopped", fg=MUTED)
+
+    def _sync_connection_mode_status(self) -> None:
+        mode = self.connection_mode.get().upper()
+        self.connection_mode_status.set(mode)
+
+    def open_selected_mode(self) -> None:
+        mode = self.connection_mode.get().upper()
+        if mode not in {"AUTOMATIC", "REMOTE", "FORCE_REMOTE"}:
+            mode = "AUTOMATIC"
+        self.connection_mode.set(mode)
+        self._sync_connection_mode_status()
+        url = HOST_URL
+        if mode != "AUTOMATIC":
+            url += "?mode=" + mode
+        webbrowser.open(url)
+        self._log(f"Opened web interface with mode: {mode}")
+
+    def restart_host_with_mode(self) -> None:
+        mode = self.connection_mode.get().upper()
+        if mode not in {"AUTOMATIC", "REMOTE", "FORCE_REMOTE"}:
+            mode = "AUTOMATIC"
+            self.connection_mode.set(mode)
+        if self.process and self.process.poll() is None:
+            self.stop_host()
+        env = os.environ.copy()
+        env["ESPLINK_CONNECTION_MODE"] = mode
+        self._log(f"Starting host with connection mode: {mode}")
+        try:
+            self.process = subprocess.Popen(
+                [PYTHON, "-m", "host.host_server"],
+                cwd=REPO_ROOT,
+                env=env,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            )
+            threading.Thread(target=self._read_process, args=(self.process,), daemon=True).start()
+            self.footer_status.configure(text=f"●  Host mode: {mode}", fg=YELLOW)
+        except OSError as exc:
+            self._log(f"ERROR: {exc}")
+            messagebox.showerror("ESPDevLink", str(exc))
+
+    def refresh_network_page(self) -> None:
+        hostname = socket.gethostname()
+        addresses = []
+        try:
+            for info in socket.getaddrinfo(hostname, None, family=socket.AF_INET):
+                address = info[4][0]
+                if address not in addresses and not address.startswith("127."):
+                    addresses.append(address)
+        except OSError:
+            pass
+        ip = ", ".join(addresses) if addresses else "—"
+        try:
+            from .config import ESP32_URL
+            esp32_url = ESP32_URL
+        except ImportError:
+            esp32_url = "http://steamlink.local"
+        mode = self.connection_mode.get().upper()
+        self.network_vars["hostname"].set(hostname)
+        self.network_vars["ip"].set(ip)
+        self.network_vars["mdns"].set(f"{hostname}.local")
+        self.network_vars["esp32"].set(esp32_url)
+        self.network_vars["mode"].set(mode)
+
+    def open_esp32(self) -> None:
+        try:
+            from .config import ESP32_URL
+            url = ESP32_URL
+        except ImportError:
+            url = "http://steamlink.local"
+        webbrowser.open(url)
+        self._log(f"Opened ESP32 interface: {url}")
+
+    def _write_schedule_output(self, text: str) -> None:
+        self.schedule_output.configure(state="normal")
+        self.schedule_output.delete("1.0", "end")
+        self.schedule_output.insert("end", text)
+        self.schedule_output.configure(state="disabled")
+
+    def schedule_host(self) -> None:
+        import re
+        value = self.schedule_time.get().strip()
+        if not re.fullmatch(r"(?:[01]\\d|2[0-3]):[0-5]\\d", value):
+            messagebox.showerror("ESPDevLink Scheduler", "Use 24-hour HH:MM format, for example 08:30.")
+            return
+        task_name = "ESPDevLink Host Daily Start"
+        command = str(REPO_ROOT / "host" / "run_esp_link_host.bat")
+        result = subprocess.run(
+            ["schtasks", "/Create", "/TN", task_name, "/TR", f'cmd /c ""{command}""',
+             "/SC", "DAILY", "/ST", value, "/F"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+        self._write_schedule_output((result.stdout or "") + (result.stderr or ""))
+        if result.returncode == 0:
+            self._log(f"Scheduled daily host start at {value}.")
+        else:
+            self._log(f"Schedule failed with code {result.returncode}.")
+
+    def cancel_schedule(self) -> None:
+        task_name = "ESPDevLink Host Daily Start"
+        result = subprocess.run(
+            ["schtasks", "/Delete", "/TN", task_name, "/F"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+        self._write_schedule_output((result.stdout or "") + (result.stderr or ""))
+        self._log("Daily host schedule cancelled." if result.returncode == 0 else f"Cancel schedule returned {result.returncode}.")
+
+    def show_schedule(self) -> None:
+        task_name = "ESPDevLink Host Daily Start"
+        result = subprocess.run(
+            ["schtasks", "/Query", "/TN", task_name, "/FO", "LIST", "/V"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+        output = (result.stdout or "") + (result.stderr or "")
+        self._write_schedule_output(output if output.strip() else "No schedule found.")
+        self._log("Displayed current schedule.")
+
+    def _on_close(self) -> None:
+        if self.process and self.process.poll() is None:
+            if not messagebox.askyesno("Exit ESPDevLink", "Stop the running process and exit?"):
+                return
+            self.stop_host()
+        self.destroy()
+
     def _host_request_json(self, path: str, method: str = "GET") -> dict:
         request = urllib.request.Request(HOST_URL.rstrip("/") + path, method=method)
         with urllib.request.urlopen(request, timeout=2) as response:
@@ -953,7 +1141,7 @@ class ESPDevLinkGUI(tk.Tk):
 
     def refresh_stream_page(self) -> None:
         try:
-            status = self._host_request_json("/api/status")
+            status = self._host_request_json("/api/host/status")
             health = self._host_request_json("/api/host/health")
             host = status.get("host", {})
             stream = status.get("stream", {})
