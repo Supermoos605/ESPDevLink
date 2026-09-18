@@ -91,6 +91,7 @@ body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 0%,#1a17
 <button class="menu-item" onclick="go('scheduler')"><span class="menu-num"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M12 13v3l2 1"/></svg></span><span><div class="menu-title">Host start time</div><div class="menu-desc">Set or remove the daily Windows start task.</div></span></button>
 <button class="menu-item" onclick="go('streaming')"><span class="menu-num"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3Z"/></svg></span><span><div class="menu-title">Streaming</div><div class="menu-desc">View stream state and control the active stream.</div></span></button>
 <button class="menu-item" onclick="openWeb()"><span class="menu-num"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4a12 12 0 0 1 0 16M12 4a12 12 0 0 0 0 16"/></svg></span><span><div class="menu-title">Open web interface</div><div class="menu-desc">Open the host's browser interface.</div></span></button>
+<button class="menu-item" onclick="go('output')"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><span><div class="menu-title">Output &amp; logs</div><div class="menu-desc">View live output from every operation in one place.</div></span></button>
 <button class="menu-item" onclick="openEsp()"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z"/><path d="M9 9h6v6H9zM3 9h2M3 15h2M19 9h2M19 15h2M9 3v2M15 3v2M9 19v2M15 19v2"/></svg></span><span><div class="menu-title">Open ESP32 interface</div><div class="menu-desc">Open steamlink.local in your browser.</div></span></button>
 </div>
 </section>
@@ -152,6 +153,13 @@ body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 0%,#1a17
 <button class="back" onclick="home()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>Back to main menu</button>
 </section>
 
+<section class="page" id="output">
+<div class="page-head"><div><span></span><h3>Output &amp; logs</h3></div><button class="action" style="padding:8px 12px" onclick="clearOutput()">Clear</button></div>
+<div class="panel output" id="globalOutput">No command output yet.</div>
+<div class="actions"><button class="action primary" onclick="refreshOutput()">Refresh output</button></div>
+<button class="back" onclick="home()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>Back to main menu</button>
+</section>
+
 <section class="page" id="streaming">
 <div class="page-head"><div><span></span><h3>Streaming</h3></div></div>
 <div class="panel"><div class="rows" id="streamRows"></div></div>
@@ -164,7 +172,7 @@ body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 0%,#1a17
 </main>
 
 <script>
-const pages=["home","status","operations","diagnostics","connection","network","scheduler","streaming"];
+const pages=["home","status","operations","diagnostics","connection","network","scheduler","streaming","output"];
 let lastStatus=null;
 function $(id){return document.getElementById(id)}
 function go(id){pages.forEach(x=>$(x).classList.remove("active"));$(id).classList.add("active");refresh()}
@@ -184,13 +192,15 @@ async function showSchedule(){try{$("scheduleOut").textContent=await pywebview.a
 async function refreshOutput(){
 try{
 const out=await pywebview.api.output();
-const el=$("operationsOut");
+const targets=[$("operationsOut"),$("diagnosticsOut"),$("connectionOut"),$("scheduleOut"),$("streamOut"),$("globalOutput")].filter(Boolean);
+targets.forEach(el=>{
 const stick=el.scrollTop+el.clientHeight>=el.scrollHeight-30;
 el.textContent=out||"No command output yet.";
 if(stick)el.scrollTop=el.scrollHeight;
+});
 }catch(e){}
 }
-async function clearOutput(){try{$("operationsOut").textContent=await pywebview.api.clear_output()}catch(e){}}
+async function clearOutput(){try{await pywebview.api.clear_output();await refreshOutput()}catch(e){}}
 
 async function refresh(){
 try{
