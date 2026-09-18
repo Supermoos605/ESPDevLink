@@ -3,21 +3,38 @@ setlocal
 cd /d "%~dp0"
 
 rem ESPDevLink graphical control center.
-if exist ".venv\Scripts\pythonw.exe" (
-    start "" ".venv\Scripts\pythonw.exe" -m host.host_gui
-    exit /b 0
+rem Prefer the virtual environment, but keep a visible console so startup
+rem errors are not silently hidden.
+if exist ".venv\Scripts\python.exe" (
+    ".venv\Scripts\python.exe" -m host.host_gui
+    if errorlevel 1 (
+        echo.
+        echo ESPDevLink GUI exited with an error.
+        pause
+    )
+    exit /b %errorlevel%
 )
 
-where pyw >nul 2>&1
+where py >nul 2>&1
 if not errorlevel 1 (
-    start "" pyw -3 -m host.host_gui
-    exit /b 0
+    py -3 -m host.host_gui
+    if errorlevel 1 (
+        echo.
+        echo ESPDevLink GUI exited with an error.
+        pause
+    )
+    exit /b %errorlevel%
 )
 
-where pythonw >nul 2>&1
+where python >nul 2>&1
 if not errorlevel 1 (
-    start "" pythonw -m host.host_gui
-    exit /b 0
+    python -m host.host_gui
+    if errorlevel 1 (
+        echo.
+        echo ESPDevLink GUI exited with an error.
+        pause
+    )
+    exit /b %errorlevel%
 )
 
 echo Python was not found.
