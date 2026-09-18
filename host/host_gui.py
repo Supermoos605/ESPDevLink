@@ -45,6 +45,109 @@ YELLOW = "#f4c84a"
 RED = "#ff6475"
 
 
+class SteamButton(tk.Canvas):
+    """SteamLink-inspired rounded button with a purple gradient accent."""
+    def __init__(self, parent, text="", command=None, accent=False, **kwargs):
+        self._label = text
+        self._command = command
+        self._accent = accent
+        self._disabled = False
+        self._hover = False
+        super().__init__(
+            parent,
+            height=42,
+            width=max(150, len(text) * 8 + 34),
+            bd=0,
+            highlightthickness=0,
+            relief="flat",
+            bg=kwargs.pop("bg", parent.cget("bg")),
+            cursor="hand2",
+        )
+        self.bind("<Configure>", lambda _e: self._draw())
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<Button-1>", self._on_click)
+        self._draw()
+
+    @staticmethod
+    def _mix(a, b, t):
+        a = a.lstrip("#")
+        b = b.lstrip("#")
+        return "#{:02x}{:02x}{:02x}".format(
+            int(int(a[0:2], 16) * (1-t) + int(b[0:2], 16) * t),
+            int(int(a[2:4], 16) * (1-t) + int(b[2:4], 16) * t),
+            int(int(a[4:6], 16) * (1-t) + int(b[4:6], 16) * t),
+        )
+
+    def _draw(self):
+        w, h = max(20, self.winfo_width()), max(20, self.winfo_height())
+        self.delete("all")
+        radius = min(13, h // 2 - 1)
+        if self._accent and not self._disabled:
+            left, right = BLUE, PURPLE
+            if self._hover:
+                left, right = "#7180ff", "#a267ff"
+            for x in range(w):
+                t = x / max(1, w - 1)
+                color = self._mix(left, right, t)
+                self.create_line(x, 1, x, h - 2, fill=color)
+            # Restore rounded corners by painting the outside corners with the parent background.
+            bg = self.cget("bg")
+            self.create_arc(0, 0, radius*2, radius*2, start=90, extent=90, fill=bg, outline=bg)
+            self.create_arc(w-radius*2, 0, w, radius*2, start=0, extent=90, fill=bg, outline=bg)
+            self.create_arc(0, h-radius*2, radius*2, h, start=180, extent=90, fill=bg, outline=bg)
+            self.create_arc(w-radius*2, h-radius*2, w, h, start=270, extent=90, fill=bg, outline=bg)
+            # Inner rounded shape.
+            self.create_arc(1, 1, radius*2+1, radius*2+1, start=90, extent=90, fill=left, outline=left)
+            self.create_arc(w-radius*2-1, 1, w-1, radius*2+1, start=0, extent=90, fill=right, outline=right)
+            self.create_arc(1, h-radius*2-1, radius*2+1, h-1, start=180, extent=90, fill=left, outline=left)
+            self.create_arc(w-radius*2-1, h-radius*2-1, w-1, h-1, start=270, extent=90, fill=right, outline=right)
+            text_color = "white"
+        else:
+            fill = "#1a1f2b" if not self._hover else "#242b3c"
+            if self._disabled:
+                fill = "#121620"
+            # Rounded dark secondary button.
+            self.create_rectangle(radius, 1, w-radius, h-2, fill=fill, outline=fill)
+            self.create_rectangle(1, radius, w-2, h-radius, fill=fill, outline=fill)
+            for box, start, extent in (
+                ((1,1,radius*2,radius*2),90,90),
+                ((w-radius*2,1,w-1,radius*2),0,90),
+                ((1,h-radius*2,radius*2,h-1),180,90),
+                ((w-radius*2,h-radius*2,w-1,h-1),270,90),
+            ):
+                self.create_arc(*box, start=start, extent=extent, fill=fill, outline=fill)
+            text_color = "#666f82" if self._disabled else "#dfe4ef"
+        self.create_text(w/2, h/2, text=self._label, fill=text_color,
+                         font=("Segoe UI", 10, "bold" if self._accent else "normal"))
+
+    def _on_enter(self, _event):
+        self._hover = True
+        self._draw()
+
+    def _on_leave(self, _event):
+        self._hover = False
+        self._draw()
+
+    def _on_click(self, _event):
+        if not self._disabled and self._command:
+            self._command()
+
+    def configure(self, cnf=None, **kwargs):
+        state = kwargs.pop("state", None)
+        text = kwargs.pop("text", None)
+        if text is not None:
+            self._label = text
+        if state is not None:
+            self._disabled = state == "disabled"
+            self.configure(cursor="arrow" if self._disabled else "hand2")
+        if kwargs:
+            super().configure(cnf or {}, **kwargs)
+        self._draw()
+
+    config = configure
+
+
 class ESPDevLinkGUI(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -114,32 +217,41 @@ class ESPDevLinkGUI(tk.Tk):
         self._build_footer()
 
     def _build_header(self) -> None:
-        header = tk.Frame(self, bg="#080a0f", height=82)
+        header = tk.Frame(self, bg=BG, height=82)
         header.pack(fill="x")
         header.pack_propagate(False)
 
-        brand = tk.Frame(header, bg="#0e1725")
+        glow = tk.Canvas(header, bg=BG, bd=0, highlightthickness=0)
+        glow.place(relx=0, rely=0, relwidth=1, relheight=1)
+        for cx, cy, r, alpha_steps in ((0.82, 0.25, 70, 8), (0.94, 0.78, 52, 7)):
+            for i in range(alpha_steps, 0, -1):
+                rr = r * i / alpha_steps
+                glow.create_oval(
+                    1120*cx-rr, 82*cy-rr, 1120*cx+rr, 82*cy+rr,
+                    fill="#17132a" if i > alpha_steps//2 else "#111329", outline=""
+                )
+
+        brand = tk.Frame(header, bg=BG)
         brand.pack(side="left", padx=24, fill="y")
         tk.Label(
             brand,
-            text="▣",
-            bg="#0e1725",
-            fg=TEXT,
-            font=("Segoe UI Emoji", 25),
+            text="",
+            bg=BG,
+            highlightthickness=0,
         ).pack(side="left", padx=(0, 12))
         titles = tk.Frame(brand, bg="#0e1725")
         titles.pack(side="left", pady=13)
         tk.Label(
             titles,
             text="ESPDevLink Host",
-            bg="#0e1725",
+            bg=BG,
             fg=TEXT,
             font=("Segoe UI", 18, "bold"),
         ).pack(anchor="w")
         tk.Label(
             titles,
             text="Windows host control center",
-            bg="#0e1725",
+            bg=BG,
             fg=MUTED,
             font=("Segoe UI", 9),
         ).pack(anchor="w")
@@ -217,13 +329,21 @@ class ESPDevLinkGUI(tk.Tk):
                 font=("Segoe UI", 9),
                 padx=20,
                 pady=7,
-                cursor="hand2",
-                command=command,
+                cursor="hand2",                command=command,
             ).pack(fill="x")
 
     def _build_dashboard_page(self) -> None:
         page = tk.Frame(self.content, bg=BG)
         self.pages["Dashboard"] = page
+        ambient = tk.Canvas(page, bg=BG, bd=0, highlightthickness=0)
+        ambient.place(relx=0, rely=0, relwidth=1, relheight=1)
+        for cx, cy, r in ((0.92, 0.10, 95), (0.70, 0.92, 70)):
+            for i in range(7, 0, -1):
+                rr = r * i / 7
+                ambient.create_oval(
+                    1120*cx-rr, 760*cy-rr, 1120*cx+rr, 760*cy+rr,
+                    fill="#11122a" if i > 3 else "#17102d", outline=""
+                )
 
         title = tk.Frame(page, bg=BG)
         title.pack(fill="x", padx=26, pady=(24, 16))
@@ -283,7 +403,7 @@ class ESPDevLinkGUI(tk.Tk):
 
         actions = tk.Frame(page, bg=BG)
         actions.pack(fill="x", padx=26, pady=(0, 12))
-        self.dashboard_start = ttk.Button(
+        self.dashboard_start = self._steam_button(
             actions, text="▶  START HOST", style="Accent.TButton", command=self.start_host
         )
         self.dashboard_start.pack(side="left", padx=(0, 8))
@@ -517,8 +637,7 @@ class ESPDevLinkGUI(tk.Tk):
         self.schedule_output = tk.Text(panel, height=8, bg="#08111b", fg="#b9c9da",
                                        relief="flat", font=("Consolas", 9), wrap="word")
         self.schedule_output.pack(fill="both", expand=True, padx=14, pady=(0, 14))
-        self.schedule_output.insert("end", "No schedule query run yet.\n")
-        self.schedule_output.configure(state="disabled")
+        self.schedule_output.insert("end", "No schedule query run yet.\n")        self.schedule_output.configure(state="disabled")
 
     def _build_streaming_page(self) -> None:
         page = tk.Frame(self.content, bg=BG)
@@ -551,18 +670,22 @@ class ESPDevLinkGUI(tk.Tk):
             self.webrtc_vars[key] = self._info_row(panel2, label, "—")
         self.refresh_stream_page()
 
+    def _steam_button(self, parent, text, command, style="", **kwargs):
+        accent = style == "Accent.TButton"
+        return SteamButton(parent, text=text, command=command, accent=accent, **kwargs)
+
     def _build_footer(self) -> None:
         footer = tk.Frame(self, bg="#080a0f", height=30)
         footer.pack(fill="x")
         footer.pack_propagate(False)
         self.footer_status = tk.Label(
-            footer, text="●  Ready", bg="#0e1725", fg=GREEN, font=("Segoe UI", 8)
+            footer, text="●  Ready", bg=BG, fg=GREEN, font=("Segoe UI", 8)
         )
         self.footer_status.pack(side="left", padx=18)
         tk.Label(
             footer,
             text="ESPDevLink Host Control Center",
-            bg="#0e1725",
+            bg=BG,
             fg=MUTED,
             font=("Segoe UI", 8),
         ).pack(side="right", padx=18)
@@ -998,30 +1121,3 @@ class ESPDevLinkGUI(tk.Tk):
         self._log(f"Opened {HOST_URL}")
 
     def stop_host(self) -> None:
-        if not self.process or self.process.poll() is not None:
-            self.dashboard_stop.configure(state="disabled")
-            return
-        self._log("Stopping current operation...")
-        self.process.terminate()
-        try:
-            self.process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self.process.kill()
-        self.process = None
-        self.footer_status.configure(text="●  Host operation stopped", fg=MUTED)
-
-    def _on_close(self) -> None:
-        if self.process and self.process.poll() is None:
-            if not messagebox.askyesno("Exit ESPDevLink", "Stop the running process and exit?"):
-                return
-            self.stop_host()
-        self.destroy()
-
-
-def main() -> None:
-    app = ESPDevLinkGUI()
-    app.mainloop()
-
-
-if __name__ == "__main__":
-    main()
