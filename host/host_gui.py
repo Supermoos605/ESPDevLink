@@ -217,7 +217,8 @@ class ESPDevLinkGUI(tk.Tk):
         self._build_footer()
 
     def _build_header(self) -> None:
-        header = tk.Frame(self, bg=BG, height=82)        header.pack(fill="x")
+        header = tk.Frame(self, bg=BG, height=82)
+        header.pack(fill="x")
         header.pack_propagate(False)
 
         glow = tk.Canvas(header, bg=BG, bd=0, highlightthickness=0)
