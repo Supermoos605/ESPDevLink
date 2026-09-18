@@ -14,6 +14,18 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
+
+# Make Tk render natively on Windows high-DPI displays instead of letting
+# Windows bitmap-scale the entire application (which makes text and shapes fuzzy).
+if sys.platform == "win32":
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)  # Per-monitor DPI aware
+    except (AttributeError, OSError):
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except (AttributeError, OSError):
+            pass
 import urllib.error
 import urllib.request
 import webbrowser
@@ -244,40 +256,21 @@ class ESPDevLinkGUI(tk.Tk):
         self.header_logo = tk.Canvas(brand, width=42, height=42, bg=BG, bd=0, highlightthickness=0)
         self.header_logo.pack(side="left", padx=(0, 12))
 
-        # Match data/favicon.svg as closely as Tkinter can render it:
-        # diagonal indigo/purple gradient, 16/64 rounded corners, and the
-        # white rounded-square connector mark.
-        for y in range(42):
-            for x in range(42):
-                # Only paint pixels inside the scaled rounded rectangle.
-                inset = 10.5
-                if x < inset and y < inset:
-                    if (x - inset) ** 2 + (y - inset) ** 2 > inset ** 2:
-                        continue
-                if x > 42 - inset and y < inset:
-                    if (x - (42 - inset)) ** 2 + (y - inset) ** 2 > inset ** 2:
-                        continue
-                if x < inset and y > 42 - inset:
-                    if (x - inset) ** 2 + (y - (42 - inset)) ** 2 > inset ** 2:
-                        continue
-                if x > 42 - inset and y > 42 - inset:
-                    if (x - (42 - inset)) ** 2 + (y - (42 - inset)) ** 2 > inset ** 2:
-                        continue
-                t = (x / 41 + y / 41) / 2
-                self.header_logo.create_rectangle(
-                    x, y, x + 1, y + 1,
-                    fill=SteamButton._mix("#6476ff", "#9257ff", t),
-                    outline="",
-                )
+        # Rounded gradient tile. Keep geometry vector-based so Windows can
+        # render it cleanly at the monitor's native DPI.
+        self.header_logo.create_rectangle(10, 0, 32, 42, fill="#7a69ff", outline="")
+        self.header_logo.create_rectangle(0, 10, 42, 32, fill="#756eff", outline="")
+        self.header_logo.create_oval(0, 0, 21, 21, fill="#6d7cff", outline="")
+        self.header_logo.create_oval(21, 0, 42, 21, fill="#8660ff", outline="")
+        self.header_logo.create_oval(0, 21, 21, 42, fill="#706fff", outline="")
+        self.header_logo.create_oval(21, 21, 42, 42, fill="#9257ff", outline="")
 
-        # Four connector strokes from the SVG.
+        # Four connector strokes and rounded-square center mark from favicon.svg.
         self.header_logo.create_line(21, 6.6, 21, 12.5, fill="white", width=3, capstyle="round")
         self.header_logo.create_line(21, 29.5, 21, 35.4, fill="white", width=3, capstyle="round")
         self.header_logo.create_line(6.6, 21, 12.5, 21, fill="white", width=3, capstyle="round")
         self.header_logo.create_line(29.5, 21, 35.4, 21, fill="white", width=3, capstyle="round")
 
-        # SVG center mark: x=19..45, y=19..45 in the original 64 px viewBox,
-        # scaled to 42 px here. Draw its rounded-square outline explicitly.
         x1, y1, x2, y2, r = 12.5, 12.5, 29.5, 29.5, 5.25
         self.header_logo.create_line(x1 + r, y1, x2 - r, y1, fill="white", width=3.2)
         self.header_logo.create_line(x1 + r, y2, x2 - r, y2, fill="white", width=3.2)
