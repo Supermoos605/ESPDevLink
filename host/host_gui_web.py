@@ -17,6 +17,7 @@ import webview
 HOST_URL = "http://127.0.0.1:8765"
 ROOT = Path(__file__).resolve().parents[1]
 HTML = Path(__file__).with_name("host_gui_web.html")
+ICON = ROOT / "data" / "espdevlink.ico"
 
 
 class HostControlAPI:
@@ -327,7 +328,7 @@ def main():
         js_api=api,
         background_color="#080a0f",
     )
-    webview.start(gui="edgechromium")
+    webview.start(gui="edgechromium", icon=str(ICON))
 
 
 if __name__ == "__main__":
