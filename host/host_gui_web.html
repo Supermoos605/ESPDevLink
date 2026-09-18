@@ -41,7 +41,7 @@ body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 0%,#1a17
 .row:last-child{border-bottom:0}
 .row .label{color:#727d91}
 .row .value{color:#dfe4ef;text-align:right;word-break:break-word}
-.output{white-space:pre-wrap;color:#bfc7d6;line-height:1.55;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;max-height:430px;overflow:auto}
+.output{white-space:pre-wrap;color:#bfc7d6;line-height:1.55;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;max-height:500px;min-height:180px;overflow:auto;tab-size:4}
 .actions{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
 .action{appearance:none;border:1px solid #ffffff12;background:#ffffff08;color:#c8cfdd;border-radius:14px;padding:12px;font-size:12px;font-weight:800;cursor:pointer}
 .action:hover{background:#ffffff10;border-color:#7180ff55;transform:translateY(-1px)}
@@ -114,7 +114,7 @@ body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 0%,#1a17
 <button class="menu-item" onclick="runAction('deps')"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 19h14"/></svg></span><span><div class="menu-title">Install dependencies</div><div class="menu-desc">Install packages from host/requirements.txt.</div></span></button>
 <button class="menu-item" onclick="runAction('venv')"><span class="menu-num"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg></span><span><div class="menu-title">Create virtual environment</div><div class="menu-desc">Create the local .venv environment.</div></span></button>
 </div></div>
-<div class="panel output" id="operationsOut">Select an operation above.</div>
+<div class="page-head" style="margin-top:14px"><div><span></span><h3>Live command output</h3></div><button class="action" style="padding:8px 12px" onclick="clearOutput()">Clear</button></div><div class="panel output" id="operationsOut">Select an operation above.</div>
 <button class="back" onclick="home()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/><path d="M9 12h11"/></svg>Back to main menu</button>
 </section>
 
@@ -181,6 +181,17 @@ async function applyMode(){try{$("connectionOut").textContent=await pywebview.ap
 async function schedule(){try{$("scheduleOut").textContent=await pywebview.api.schedule($("scheduleTime").value)}catch(e){$("scheduleOut").textContent="ERROR: "+e}}
 async function cancelSchedule(){try{$("scheduleOut").textContent=await pywebview.api.cancel_schedule()}catch(e){$("scheduleOut").textContent="ERROR: "+e}}
 async function showSchedule(){try{$("scheduleOut").textContent=await pywebview.api.show_schedule()}catch(e){$("scheduleOut").textContent="ERROR: "+e}}
+async function refreshOutput(){
+try{
+const out=await pywebview.api.output();
+const el=$("operationsOut");
+const stick=el.scrollTop+el.clientHeight>=el.scrollHeight-30;
+el.textContent=out||"No command output yet.";
+if(stick)el.scrollTop=el.scrollHeight;
+}catch(e){}
+}
+async function clearOutput(){try{$("operationsOut").textContent=await pywebview.api.clear_output()}catch(e){}}
+
 async function refresh(){
 try{
 const r=await pywebview.api.status();lastStatus=r;
@@ -222,7 +233,7 @@ rows("statusRows",{"Host state":"UNAVAILABLE","Error":"Unable to contact local h
 rows("networkRows",{"Network":"Unable to read host information"});
 rows("streamRows",{"Streaming":"Unable to contact host"});
 }}
-window.addEventListener("pywebviewready",()=>{refresh();setInterval(refresh,2000)})
+window.addEventListener("pywebviewready",()=>{refresh();refreshOutput();setInterval(refresh,2000);setInterval(refreshOutput,500)})
 </script>
 </body>
 </html>
