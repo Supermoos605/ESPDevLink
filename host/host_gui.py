@@ -244,37 +244,49 @@ class ESPDevLinkGUI(tk.Tk):
         self.header_logo = tk.Canvas(brand, width=42, height=42, bg=BG, bd=0, highlightthickness=0)
         self.header_logo.pack(side="left", padx=(0, 12))
 
-        # Match data/favicon.svg: 42 px rounded gradient tile with the same
-        # white rounded-square mark and four outward connector strokes.
-        # Tkinter has no CSS gradients, so draw the gradient one pixel at a time.
-        for x in range(42):
-            t = x / 41
-            self.header_logo.create_line(
-                x, 0, x, 42, fill=SteamButton._mix("#6476ff", "#9257ff", t)
-            )
-        # Clip the four corners to the favicon's 16/64 radius (scaled to 10.5 px).
-        clip = BG
-        self.header_logo.create_arc(0, 0, 21, 21, start=90, extent=90, fill=clip, outline=clip)
-        self.header_logo.create_arc(21, 0, 42, 21, start=0, extent=90, fill=clip, outline=clip)
-        self.header_logo.create_arc(0, 21, 21, 42, start=180, extent=90, fill=clip, outline=clip)
-        self.header_logo.create_arc(21, 21, 42, 42, start=270, extent=90, fill=clip, outline=clip)
-        # Repaint the center so the clipped corners do not affect the mark.
-        for x in range(11, 31):
-            t = x / 41
-            self.header_logo.create_line(
-                x, 11, x, 31, fill=SteamButton._mix("#6476ff", "#9257ff", t)
-            )
-        # Four white connector strokes from the original SVG.
+        # Match data/favicon.svg as closely as Tkinter can render it:
+        # diagonal indigo/purple gradient, 16/64 rounded corners, and the
+        # white rounded-square connector mark.
+        for y in range(42):
+            for x in range(42):
+                # Only paint pixels inside the scaled rounded rectangle.
+                inset = 10.5
+                if x < inset and y < inset:
+                    if (x - inset) ** 2 + (y - inset) ** 2 > inset ** 2:
+                        continue
+                if x > 42 - inset and y < inset:
+                    if (x - (42 - inset)) ** 2 + (y - inset) ** 2 > inset ** 2:
+                        continue
+                if x < inset and y > 42 - inset:
+                    if (x - inset) ** 2 + (y - (42 - inset)) ** 2 > inset ** 2:
+                        continue
+                if x > 42 - inset and y > 42 - inset:
+                    if (x - (42 - inset)) ** 2 + (y - (42 - inset)) ** 2 > inset ** 2:
+                        continue
+                t = (x / 41 + y / 41) / 2
+                self.header_logo.create_rectangle(
+                    x, y, x + 1, y + 1,
+                    fill=SteamButton._mix("#6476ff", "#9257ff", t),
+                    outline="",
+                )
+
+        # Four connector strokes from the SVG.
         self.header_logo.create_line(21, 6.6, 21, 12.5, fill="white", width=3, capstyle="round")
         self.header_logo.create_line(21, 29.5, 21, 35.4, fill="white", width=3, capstyle="round")
         self.header_logo.create_line(6.6, 21, 12.5, 21, fill="white", width=3, capstyle="round")
         self.header_logo.create_line(29.5, 21, 35.4, 21, fill="white", width=3, capstyle="round")
-        # Rounded-square center mark.
-        self.header_logo.create_arc(12.5, 12.5, 29.5, 29.5, start=0, extent=360, outline="white", width=3.2)
-        self.header_logo.create_line(16, 12.8, 26, 12.8, fill="white", width=3.2)
-        self.header_logo.create_line(16, 29.2, 26, 29.2, fill="white", width=3.2)
-        self.header_logo.create_line(12.8, 16, 12.8, 26, fill="white", width=3.2)
-        self.header_logo.create_line(29.2, 16, 29.2, 26, fill="white", width=3.2)
+
+        # SVG center mark: x=19..45, y=19..45 in the original 64 px viewBox,
+        # scaled to 42 px here. Draw its rounded-square outline explicitly.
+        x1, y1, x2, y2, r = 12.5, 12.5, 29.5, 29.5, 5.25
+        self.header_logo.create_line(x1 + r, y1, x2 - r, y1, fill="white", width=3.2)
+        self.header_logo.create_line(x1 + r, y2, x2 - r, y2, fill="white", width=3.2)
+        self.header_logo.create_line(x1, y1 + r, x1, y2 - r, fill="white", width=3.2)
+        self.header_logo.create_line(x2, y1 + r, x2, y2 - r, fill="white", width=3.2)
+        self.header_logo.create_arc(x1, y1, x1 + 2*r, y1 + 2*r, start=90, extent=90, outline="white", width=3.2)
+        self.header_logo.create_arc(x2 - 2*r, y1, x2, y1 + 2*r, start=0, extent=90, outline="white", width=3.2)
+        self.header_logo.create_arc(x1, y2 - 2*r, x1 + 2*r, y2, start=180, extent=90, outline="white", width=3.2)
+        self.header_logo.create_arc(x2 - 2*r, y2 - 2*r, x2, y2, start=270, extent=90, outline="white", width=3.2)
         titles = tk.Frame(brand, bg=BG)
         titles.pack(side="left", pady=13)
         tk.Label(
