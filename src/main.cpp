@@ -56,9 +56,22 @@ const char* FALLBACK_AP_PASSWORD = "WifiRecovery";
 const char* NAT_AP_NAME = ESPDEVLINK_AP_SSID;
 const char* NAT_AP_PASSWORD = ESPDEVLINK_AP_PASSWORD;
 
-const IPAddress NAT_AP_IP(ESPDEVLINK_AP_IP_1, ESPDEVLINK_AP_IP_2, ESPDEVLINK_AP_IP_3, ESPDEVLINK_AP_IP_4);
+IPAddress NAT_AP_IP;
 const IPAddress NAT_AP_SUBNET(255, 255, 255, 0);
-const IPAddress NAT_AP_LEASE_START(ESPDEVLINK_AP_IP_1, ESPDEVLINK_AP_IP_2, ESPDEVLINK_AP_IP_3, ESPDEVLINK_AP_IP_4 + 1);
+IPAddress NAT_AP_LEASE_START;
+
+bool configureNATAPAddress() {
+    IPAddress parsed;
+    if (!parsed.fromString(ESPDEVLINK_AP_IP)) {
+        Serial.print("Invalid ESPDEVLINK_AP_IP: ");
+        Serial.println(ESPDEVLINK_AP_IP);
+        return false;
+    }
+    NAT_AP_IP = parsed;
+    NAT_AP_LEASE_START = parsed;
+    NAT_AP_LEASE_START[3] = static_cast<uint8_t>(parsed[3] + 1);
+    return parsed[0] != 0 && parsed[3] < 254;
+}
 
 constexpr unsigned long WIFI_TIMEOUT_MS = 15000;
 constexpr uint8_t BOOT_BUTTON_PIN = 0; // Built-in BOOT button on ESP32 DevKit V1
@@ -224,6 +237,7 @@ String wifiFailureReason() {
 // Arduino-ESP32 3.x exposes the AP NetworkInterface, which also lets us
 // provide the upstream DNS server to AP clients through DHCP.
 bool startNATAP() {
+    if (!configureNATAPAddress()) return false;
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("NAT AP not started: STA is not connected.");
         return false;
