@@ -110,6 +110,7 @@ void loadWiFiCredentials() {
         WIFI_PASSWORD = "";
     }
     activeWiFiSSID = "";
+    wifiLastFailure = wifiPreferences.getString("last_failure", "");
     Serial.print("Saved Wi-Fi SSID: ");
     Serial.println(hasSavedWiFiCredentials && WIFI_SSID.length() ? WIFI_SSID : "(none)");
 }
@@ -121,6 +122,19 @@ void saveWiFiCredentials(const String& ssid, const String& password) {
     WIFI_PASSWORD = password;
     activeWiFiSSID = ssid;
     hasSavedWiFiCredentials = true;
+    wifiPreferences.remove("last_failure");
+}
+
+void recordWiFiFailure(const char* ssid, const String& reason) {
+    if (ssid && strlen(ssid) > 0) wifiPreferences.putString("last_attempt_ssid", ssid);
+    wifiPreferences.putString("last_failure", reason);
+    wifiLastFailure = reason;
+}
+
+void clearWiFiFailure() {
+    wifiPreferences.remove("last_attempt_ssid");
+    wifiPreferences.remove("last_failure");
+    wifiLastFailure = "";
 }
 
 bool lookupRemoteURL() {
@@ -316,7 +330,7 @@ bool tryWiFiNetwork(const char* ssid, const char* password, const char* label) {
         return true;
     }
 
-    wifiLastFailure = wifiFailureReason();
+    recordWiFiFailure(ssid, wifiFailureReason());
     Serial.print(label);
     Serial.print(" Wi-Fi failure reason: ");
     Serial.println(wifiLastFailure);
@@ -359,7 +373,7 @@ void connectWiFi(bool forceFallback = false) {
     if (configuredSavedWiFi()) {
         Serial.println("Trying saved Wi-Fi credentials first...");
         if (tryWiFiNetwork(WIFI_SSID.c_str(), WIFI_PASSWORD.c_str(), "saved")) {
-            wifiLastFailure = "";
+            clearWiFiFailure();
             return;
         }
     }
@@ -367,7 +381,7 @@ void connectWiFi(bool forceFallback = false) {
     if (configuredWiFi()) {
         Serial.println("Trying primary Wi-Fi network...");
         if (tryWiFiNetwork(DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASSWORD, "primary")) {
-            wifiLastFailure = "";
+            clearWiFiFailure();
             return;
         }
     } else {
@@ -377,14 +391,14 @@ void connectWiFi(bool forceFallback = false) {
     if (configuredFallbackWiFi()) {
         Serial.println("Primary Wi-Fi unavailable; trying secondary network...");
         if (tryWiFiNetwork(FALLBACK_WIFI_SSID, FALLBACK_WIFI_PASSWORD, "secondary")) {
-            wifiLastFailure = "Primary network unavailable; connected to secondary network";
+            clearWiFiFailure();
             return;
         }
     } else {
         Serial.println("No secondary Wi-Fi network is configured.");
     }
 
-    wifiLastFailure = "Saved, primary, and secondary Wi-Fi networks unavailable";
+    recordWiFiFailure("", "Saved, primary, and secondary Wi-Fi networks unavailable");
     Serial.println("No configured Wi-Fi network could be reached.");
     startFallbackAP();
 }
@@ -530,6 +544,8 @@ void setup() {
         }
         wifiPreferences.remove("ssid");
         wifiPreferences.remove("password");
+        wifiPreferences.remove("last_attempt_ssid");
+        wifiPreferences.remove("last_failure");
         WIFI_SSID = "";
         WIFI_PASSWORD = "";
         activeWiFiSSID = "";
@@ -689,6 +705,7 @@ void setup() {
         doc["wifi_ssid"] = activeWiFiSSID;
         doc["wifi_status"] = (int)WiFi.status();
         doc["wifi_failure"] = wifiLastFailure;
+        doc["wifi_last_attempt_ssid"] = wifiPreferences.getString("last_attempt_ssid", "");
         doc["wifi_attempts"] = wifiAttempts;
         doc["fallback_ip"] = WiFi.softAPIP().toString();
         doc["nat_ap_enabled"] = natAPStarted;
