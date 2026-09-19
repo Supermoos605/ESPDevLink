@@ -37,7 +37,7 @@ The unit tests use the host's Python components directly. They do not require:
 
 - a physical ESP32
 - an ESP32 Wi-Fi connection
-- the `steamlink.local` mDNS address
+- the ESP32 LAN IP address
 - real game streaming hardware
 - an installed WebRTC media backend for signaling-only tests
 
