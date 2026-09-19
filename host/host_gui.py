@@ -179,7 +179,6 @@ class ESPDevLinkGUI(tk.Tk):
         self.process: subprocess.Popen[str] | None = None
         self.output_queue: queue.Queue[str] = queue.Queue()
         self.nav_buttons: dict[str, tk.Button] = {}
-        self.connection_mode = tk.StringVar(value=os.environ.get("ESPLINK_CONNECTION_MODE", "AUTOMATIC").upper())
 
         self._setup_style()
         self._build_ui()
@@ -981,9 +980,6 @@ class ESPDevLinkGUI(tk.Tk):
 
     def start_host(self) -> None:
         self._start_process([PYTHON, "-m", "host.host_server"], "Starting host server")
-
-    def start_heartbeat(self) -> None:
-        self._start_process([PYTHON, "-m", "host.network.heartbeat"], "Starting network heartbeat")
 
     def start_simulator(self) -> None:
         self._start_process([PYTHON, "simulator/esp_link_simulator.py"], "Starting ESPLink simulator")
