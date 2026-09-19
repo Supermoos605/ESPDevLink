@@ -47,10 +47,16 @@ const char* MDNS_NAME = "steamlink";
 const char* FALLBACK_AP_NAME = "ESPLink-Setup";
 const char* FALLBACK_AP_PASSWORD = "esp-link-setup";
 
-// AP+STA NAT test network. This is intentionally separate from the existing
-// fallback setup AP while the NAT router experiment is being validated.
-const char* NAT_AP_NAME = "ESPDevLink-NAT-Test";
-const char* NAT_AP_PASSWORD = "espdevlink";
+// ESPDevLink client network. Configure the SSID/password in the private
+// include/espdevlink_secrets.h file so the real client network is not hard-coded.
+#ifndef ESPDEVLINK_AP_SSID
+#define ESPDEVLINK_AP_SSID "ESPDevLink"
+#endif
+#ifndef ESPDEVLINK_AP_PASSWORD
+#define ESPDEVLINK_AP_PASSWORD "espdevlink"
+#endif
+const char* NAT_AP_NAME = ESPDEVLINK_AP_SSID;
+const char* NAT_AP_PASSWORD = ESPDEVLINK_AP_PASSWORD;
 
 const IPAddress NAT_AP_IP(192, 168, 4, 1);
 const IPAddress NAT_AP_SUBNET(255, 255, 255, 0);
@@ -245,7 +251,7 @@ bool startNATAP() {
 
     natAPStarted = true;
     Serial.println();
-    Serial.println("ESPDevLink NAT AP started.");
+    Serial.println("ESPDevLink client AP started.");
     Serial.print("  SSID: ");
     Serial.println(NAT_AP_NAME);
     Serial.print("  Password: ");
