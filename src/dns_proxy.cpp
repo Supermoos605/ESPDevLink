@@ -51,12 +51,6 @@ String readQName(const uint8_t* packet, size_t length, size_t& offset) {
     return name;
 }
 
-bool isESPDevLinkName(const String& name) {
-    return name == "steamlink" ||
-           name == "steamlink.home" ||
-           name == "steamlink.home.arpa";
-}
-
 void expirePending() {
     const uint32_t now = millis();
     for (auto& query : pending) {
@@ -66,12 +60,12 @@ void expirePending() {
     }
 }
 
-void answerLocal(const uint8_t* query, size_t length, const IPAddress& clientIP, uint16_t clientPort) {
+void answerLocal(const uint8_t* query, size_t length, const IPAddress& clientIP, uint16_t clientPort, bool anyName = false) {
     if (length < 12 || length > DNS_MAX_PACKET) return;
 
     size_t offset = 12;
     String name = readQName(query, length, offset);
-    if (!isESPDevLinkName(name) || offset + 4 > length || length + 16 > DNS_MAX_PACKET) {
+    if ((!anyName && name.length() == 0) || offset + 4 > length || length + 16 > DNS_MAX_PACKET) {
         return;
     }
 
@@ -191,14 +185,9 @@ void processDNS() {
         String name = readQName(packet, static_cast<size_t>(length), offset);
         if (name.length() == 0 || offset + 4 > static_cast<size_t>(length)) continue;
 
-        if (isESPDevLinkName(name)) {
-            answerLocal(packet, static_cast<size_t>(length), remoteIP, remotePort);
-            continue;
-        }
-
         // Recovery mode has no upstream DNS, so answer all names locally.
         if (WiFi.status() != WL_CONNECTED || upstreamDNS == IPAddress(0, 0, 0, 0)) {
-            answerLocal(packet, static_cast<size_t>(length), remoteIP, remotePort);
+            answerLocal(packet, static_cast<size_t>(length), remoteIP, remotePort, true);
             continue;
         }
 
