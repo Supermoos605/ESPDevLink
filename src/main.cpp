@@ -44,7 +44,7 @@ const char* KEYVAL_KEY = ESPDEVLINK_KEYVAL_KEY;
 const char* RENDEZVOUS_DEVICE_ID = "gaming-pc";
 
 const char* MDNS_NAME = "steamlink";
-const char* FALLBACK_AP_NAME = "ESPLink-Setup";
+const char* FALLBACK_AP_NAME = "ESPDev-Recovery";
 const char* FALLBACK_AP_PASSWORD = "esp-link-setup";
 
 // ESPDevLink client network. Configure the SSID/password in the private
