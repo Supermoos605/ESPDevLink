@@ -477,7 +477,6 @@ class ESPDevLinkGUI(tk.Tk):
         for text, command in (
             ("▶  Start Host Server", self.start_host),
             ("■  Stop Current Process", self.stop_host),
-            ("♥  Start Network Heartbeat", self.start_heartbeat),
             ("▣  Start ESPLink Simulator", self.start_simulator),
             ("↗  Open Web Interface", self.open_web),
         ):
