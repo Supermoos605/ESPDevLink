@@ -537,7 +537,14 @@ void setup() {
         doc["pc_online"] = pcOnline();
         doc["remote_online"] = remoteOnline;
         doc["remote_url"] = remoteURL;
-        sendJson(request, doc);
+        String output;
+        serializeJson(doc, output);
+        AsyncWebServerResponse* response = request->beginResponse(200, "application/json", output);
+        // The status endpoint is intentionally public so a page loaded through
+        // steamlink.local can quickly probe a previously learned LAN IP.
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        response->addHeader("Cache-Control", "no-store");
+        request->send(response);
     });
 
     server.on("/api/pc", HTTP_GET, [](AsyncWebServerRequest* request) {
