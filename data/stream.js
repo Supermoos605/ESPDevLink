@@ -14,13 +14,9 @@ const meta = document.getElementById('hostMeta');
 const state = document.getElementById('state');
 const stage = document.getElementById('stage');
 video.autoplay = true; video.muted = true; video.playsInline = true;
-// Connection mode state machine.
-// AUTOMATIC: prefer LAN, then Quick Tunnel.
-// LOCAL: require the LAN host.
-// REMOTE: require the Quick Tunnel.
-// FORCE_REMOTE: alias kept for backwards compatibility with the test switch.
-const CONNECTION_MODE = (() => { const m = new URLSearchParams(location.search).get('mode'); return m ? m.toUpperCase() : 'AUTOMATIC'; })();
-const FORCE_REMOTE = CONNECTION_MODE === 'FORCE_REMOTE';
+// ESPDevLink uses the remote Quick Tunnel path exclusively.
+const CONNECTION_MODE = 'REMOTE';
+const FORCE_REMOTE = false;
 let videoStream=null,audioStream=null;
 let lastFailedConnectionRoute='';
 let streamStartTime=0;
@@ -29,8 +25,7 @@ let recoveryTimer=null,connectionTimeout=null,iceRecoveryTimer=null,audioStatsTi
 const pressedKeys=new Set(),pressedButtons=new Set();
 const labels={ready:'READY',connecting:'CONNECTING',streaming:'LIVE',error:'ERROR',offline:'OFFLINE'};
 function paint({state:nextState,game=''}){
-  if(state){} // retained compatibility
-  if(typeof nextState!=='string') return;
+  if(state){} if(typeof nextState!=='string') return;
   if(typeof state!=='undefined' && state) state.textContent=labels[nextState]||nextState.toUpperCase();
   if(gameName) gameName.textContent=game || '';
   if(placeholder) placeholder.style.display=nextState==='streaming'?'none':'';
@@ -39,70 +34,13 @@ function paint({state:nextState,game=''}){
 const diagnostics=[];
 function diag(label,value=''){
   const line=`${label}${value!==''?': '+value:''}`;
-  diagnostics.push(line);
-  if(diagnostics.length>80) diagnostics.shift();
-  diagnosticPanel.textContent=diagnostics.join('\n');
-  console.debug('[ESPDevLink]',line);
+  diagnostics.push(line); if(diagnostics.length>80) diagnostics.shift();
+  diagnosticPanel.textContent=diagnostics.join('\\n'); console.debug('[ESPDevLink]',line);
 }
 const diagnosticPanel=document.createElement('pre');
 diagnosticPanel.id='webrtcDiagnostics';
 diagnosticPanel.style.cssText='position:fixed;left:12px;right:12px;bottom:64px;z-index:20;margin:0;padding:10px;border:1px solid #555;border-radius:8px;background:#111;color:#9f9;font:12px/1.35 monospace;white-space:pre-wrap;max-height:34vh;overflow:auto;display:none;';
 document.body.appendChild(diagnosticPanel);
-let statsTimer=null;
-function stopStreamStats(){if(statsTimer){clearInterval(statsTimer);statsTimer=null;}}
-async function collectStreamStats(){
-  if(!peer||!peer.getStats)return;
-  try{
-    const report=await peer.getStats(), values={}, now=performance.now();
-    report.forEach(stat=>{
-      if(stat.type==='inbound-rtp'&&stat.kind==='video'){
-        values.videoBytes=stat.bytesReceived||0; values.videoPackets=stat.packetsReceived||0;
-        values.videoLost=stat.packetsLost||0; values.videoFrames=stat.framesReceived||0;
-        values.videoFps=stat.framesPerSecond||0;
-        if(window._espPrevVideo){
-          const dt=(now-window._espPrevVideo.t)/1000, db=(values.videoBytes-window._espPrevVideo.b)*8;
-          values.videoBitrateBps=dt>0?Math.max(0,Math.round(db/dt)):0;
-          const total=values.videoPackets+values.videoLost;
-          values.videoLossPct=total>0?(values.videoLost/total)*100:0;
-          values.networkQuality=values.videoLossPct<1?'good':values.videoLossPct<5?'fair':'poor';
-        }
-        window._espPrevVideo={t:now,b:values.videoBytes};
-      }else if(stat.type==='inbound-rtp'&&stat.kind==='audio'){
-        values.audioBytes=stat.bytesReceived||0; values.audioPackets=stat.packetsReceived||0;
-        values.audioLost=stat.packetsLost||0;
-      }
-    });
-    window.ESPLinkStreamStats=values; window.ESPLinkDashboard?.update?.();
-  }catch(error){diag('stats','failed — '+error.message);}
-}async function request(base,path,options={}){const headers={'Content-Type':'application/json',...(options.headers||{})};if(base===hostBase&&hostSession)headers['X-ESPLink-Host-Session']=hostSession;const response=await fetch(base+path,{cache:'no-store',...options,headers});if(!response.ok)throw new Error((await response.json().catch(()=>({}))).error||`HTTP ${response.status}`);return response.json();}
-async function loginHost(interactive=true){const saved=localStorage.getItem('espLinkHostSession');if(saved){hostSession=saved;try{await request(hostBase,'/api/connect',{method:'POST',body:JSON.stringify({game:localStorage.getItem('espLinkSelectedGame')||'Test Stream',session_id:hostSession})});diag('saved host session','reused');return;}catch(error){localStorage.removeItem('espLinkHostSession');hostSession='';diag('saved host session','expired');}}if(!interactive)throw new Error('Host authorization session expired. Press Retry to authorize again.');const code=window.prompt('Enter the Windows host authorization code:');if(!code)throw new Error('Host authorization code is required.');const login=await request(hostBase,'/api/auth/login',{method:'POST',body:JSON.stringify({code,client_id:`browser-${Date.now()}`})});hostSession=login.session_id;if(!hostSession)throw new Error('The Windows host did not return a session.');localStorage.setItem('espLinkHostSession',hostSession);}
-async function connectHost(interactive=true){
-  const mode=CONNECTION_MODE;
-  window.ESPLinkConnectionTransition='SELECTING';
-  diag('connection mode',mode);
-  window.ESPLinkDashboard?.update?.();
-  const localPC=await request('','/api/pc');
-  const remote=await request('','/api/remote').catch(()=>null);
-  const advertisedMode=String(localPC?.connection_mode||'').toUpperCase();
-  const effectiveMode=advertisedMode==='FORCE_REMOTE'?'FORCE_REMOTE':CONNECTION_MODE;
-  window.ESPLinkRequestedConnectionMode=effectiveMode;
-  window.ESPLinkConnectionMode=effectiveMode;
-  const localAvailable=!!(localPC?.online&&localPC?.ip);
-  const remoteAvailable=!!(remote?.online&&remote?.url);
-  diag('connection candidates',`local=${localAvailable?'available':'unavailable'}, remote=${remoteAvailable?'available':'unavailable'}`);
-  let selectedMode='';
-  if(effectiveMode==='LOCAL'){if(!localAvailable)throw new Error('Local host is unavailable.');selectedMode='LOCAL';}
-  else if(effectiveMode==='REMOTE'||effectiveMode==='FORCE_REMOTE'){if(!remoteAvailable)throw new Error('Remote host tunnel is unavailable.');selectedMode='REMOTE';}
-  else{if(localAvailable&&lastFailedConnectionRoute!=='LOCAL')selectedMode='LOCAL';else if(remoteAvailable&&lastFailedConnectionRoute!=='REMOTE')selectedMode='REMOTE';else if(localAvailable)selectedMode='LOCAL';else if(remoteAvailable)selectedMode='REMOTE';else throw new Error('Neither a local host nor a remote host tunnel is available.');}
-  if(selectedMode==='LOCAL'){hostBase=`http://${localPC.ip}:8765`;window.ESPLinkConnectionMode='LOCAL';window.ESPLinkConnectionTransition='READY';diag('connection selected','LOCAL');}
-  else{hostBase=String(remote.url).replace(/\/$/,'');window.ESPLinkConnectionMode=effectiveMode==='FORCE_REMOTE'?'FORCED_REMOTE':'REMOTE';window.ESPLinkConnectionTransition='READY';diag('connection selected',effectiveMode==='FORCE_REMOTE'?'FORCED REMOTE via Quick Tunnel':'REMOTE via Quick Tunnel');}
-  window.ESPLinkHostBase=hostBase;
-  window.ESPLinkDashboard?.update?.();
-  await loginHost(interactive);
-  diag('connection route ready',window.ESPLinkConnectionMode);
-  const selected=localStorage.getItem('espLinkSelectedGame')||'Test Stream';
-  return request(hostBase,'/api/connect',{method:'POST',body:JSON.stringify({game:selected,session_id:hostSession})});
-}
 function sendInput(type,action,data={}){if(inputChannel&&inputChannel.readyState==='open'){try{inputChannel.send(JSON.stringify({type,action,data}));}catch(error){diag('input send error',error.message);}}}
 function pointerData(event){const rect=video.getBoundingClientRect();const sourceWidth=video.videoWidth||16;const sourceHeight=video.videoHeight||9;const scale=Math.min(rect.width/sourceWidth,rect.height/sourceHeight);const renderedWidth=sourceWidth*scale;const renderedHeight=sourceHeight*scale;const offsetX=(rect.width-renderedWidth)/2;const offsetY=(rect.height-renderedHeight)/2;const x=(event.clientX-rect.left-offsetX)/renderedWidth;const y=(event.clientY-rect.top-offsetY)/renderedHeight;return{x:Math.max(0,Math.min(1,x)),y:Math.max(0,Math.min(1,y)),inside:x>=0&&x<=1&&y>=0&&y<=1,button:event.button===2?'right':event.button===1?'middle':'left',pointer_type:event.pointerType||'mouse'};}
 function bindInput(){if(inputBound)return;inputBound=true;video.style.touchAction='none';video.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('keydown',e=>{if(stopped||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if(!pressedKeys.has(e.code)){pressedKeys.add(e.code);sendInput('key','down',{code:e.code,key:e.key,repeat:e.repeat});}e.preventDefault();});document.addEventListener('keyup',e=>{if(stopped)return;pressedKeys.delete(e.code);sendInput('key','up',{code:e.code,key:e.key});e.preventDefault();});video.addEventListener('pointermove',e=>{if(!stopped){const d=pointerData(e);if(d.inside)sendInput('mouse','move',d);}});video.addEventListener('pointerdown',e=>{if(stopped)return;const d=pointerData(e);if(!d.inside)return;video.setPointerCapture?.(e.pointerId);pressedButtons.add(d.button);sendInput('mouse','down',d);e.preventDefault();});video.addEventListener('pointerup',e=>{if(stopped)return;const d=pointerData(e);pressedButtons.delete(d.button);sendInput('mouse','up',d);video.releasePointerCapture?.(e.pointerId);e.preventDefault();});video.addEventListener('pointercancel',e=>{if(stopped)return;const d=pointerData(e);pressedButtons.delete(d.button);sendInput('mouse','up',d);e.preventDefault();});video.addEventListener('pointerleave',e=>{if(stopped)return;const d=pointerData(e);if(d.inside)return;sendInput('mouse','leave',d);});video.addEventListener('wheel',e=>{if(!stopped){sendInput('mouse','wheel',{deltaX:e.deltaX,deltaY:e.deltaY});e.preventDefault();}},{passive:false});window.addEventListener('blur',releaseInput);}
