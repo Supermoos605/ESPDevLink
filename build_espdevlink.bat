@@ -80,6 +80,7 @@ echo Building ESPDevLink.exe...
     --icon "%CD%\data\espdevlink.ico" ^
     --add-data "%CD%\host\host_gui_web.html;host" ^
     --add-data "%CD%\data\espdevlink.ico;data" ^
+    --collect-data soundcard ^
     --paths "%CD%" ^
     --distpath "%CD%\bin" ^
     --workpath "%CD%\build\pyinstaller" ^
