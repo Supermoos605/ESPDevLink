@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <ESPmDNS.h>
 #include <LittleFS.h>
 #include <Preferences.h>
 #include <AsyncTCP.h>
@@ -43,7 +42,6 @@ const char* KEYVAL_BASE_URL = "https://api.keyval.org";
 const char* KEYVAL_KEY = ESPDEVLINK_KEYVAL_KEY;
 const char* RENDEZVOUS_DEVICE_ID = "gaming-pc";
 
-const char* MDNS_NAME = "steamlink";
 const char* FALLBACK_AP_NAME = "ESPDev-Recovery";
 const char* FALLBACK_AP_PASSWORD = "WifiRecovery";
 
@@ -91,7 +89,6 @@ String activeSession = "";
 String pcSession = "";
 unsigned long lastPCHeartbeat = 0;
 bool pcKnown = false;
-bool mdnsReady = false;
 String remoteURL = "";
 bool remoteOnline = false;
 unsigned long remoteCheckedAt = 0;
@@ -402,18 +399,6 @@ void connectWiFi(bool forceFallback = false) {
     startFallbackAP();
 }
 
-void startMDNS() {
-    mdnsReady = MDNS.begin(MDNS_NAME);
-    if (mdnsReady) {
-        MDNS.addService("http", "tcp", 80);
-        Serial.print("mDNS available at: http://");
-        Serial.print(MDNS_NAME);
-        Serial.println(".local");
-    } else {
-        Serial.println("mDNS failed; use the printed IP address.");
-    }
-}
-
 bool authorized(AsyncWebServerRequest* request) {
     if (activeSession.length() == 0) return false;
     return request->hasHeader("X-ESPLink-Session") &&
@@ -483,7 +468,6 @@ void setup() {
     loadWiFiCredentials();
     const bool forceFallback = fallbackButtonHeld();
     connectWiFi(forceFallback);
-    startMDNS();
 
     server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
         if (wifiMode == "fallback_ap") {
@@ -500,7 +484,7 @@ void setup() {
     // Captive-portal probe endpoints for recovery mode.
     auto recoveryRedirect = [](AsyncWebServerRequest* request) {
         if (wifiMode == "fallback_ap") {
-            request->redirect("http://192.168.4.1/");
+            request->redirect(String("http://") + WiFi.softAPIP().toString() + "/");
             return;
         }
         request->send(404, "text/plain", "404 Not Found");
@@ -697,8 +681,6 @@ void setup() {
         doc["status"] = "online";
         doc["ip"] = WiFi.localIP().toString();
         doc["ap_ip"] = WiFi.softAPIP().toString();
-        doc["mdns"] = String(MDNS_NAME) + ".local";
-        doc["mdns_ready"] = mdnsReady;
         doc["wifi_mode"] = wifiMode;
         doc["wifi_rssi"] = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
         doc["wifi_ssid"] = activeWiFiSSID;
