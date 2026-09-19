@@ -137,8 +137,6 @@ bool lookupRemoteURL() {
     http.end();
     payload.trim();
 
-    // KeyVal's POST /get API returns JSON, e.g.
-    // {"status":"SUCCESS","key":"...","val":"https://....trycloudflare.com"}
     JsonDocument responseDoc;
     DeserializationError parseError = deserializeJson(responseDoc, payload);
     if (parseError) {
@@ -200,7 +198,8 @@ String wifiFailureReason() {
 
 // Start the ESPDevLink AP alongside the already-connected STA interface and
 // enable ESP32 NAPT so AP clients can use the STA network as their uplink.
-// Use the ESP-NETIF API so this also compiles with Arduino-ESP32 2.x.
+// Arduino-ESP32 3.x exposes the AP NetworkInterface, which also lets us
+// provide the upstream DNS server to AP clients through DHCP.
 bool startNATAP() {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("NAT AP not started: STA is not connected.");
@@ -213,12 +212,22 @@ bool startNATAP() {
     // The ESP32 has one 2.4 GHz radio, so keep the SoftAP on the STA's
     // currently selected channel.
     const uint8_t apChannel = WiFi.channel();
-    if (!WiFi.softAPConfig(
+
+    // The fourth AP config argument is the DHCP lease start address and the
+    // fifth is the DNS server advertised to AP clients. Without an explicit
+    // DNS server, an iPad can reach 192.168.4.1 but cannot resolve domains.
+    IPAddress upstreamDNS = WiFi.dnsIP(0);
+    if (upstreamDNS == IPAddress(0, 0, 0, 0)) {
+        upstreamDNS = IPAddress(1, 1, 1, 1);
+    }
+
+    if (!WiFi.AP.config(
             NAT_AP_IP,
             NAT_AP_IP,
             NAT_AP_SUBNET,
-            NAT_AP_LEASE_START)) {
-        Serial.println("NAT AP IP/DHCP configuration failed.");
+            NAT_AP_LEASE_START,
+            upstreamDNS)) {
+        Serial.println("NAT AP IP/DHCP/DNS configuration failed.");
         return false;
     }
 
@@ -240,8 +249,9 @@ bool startNATAP() {
     Serial.println(apChannel);
     Serial.print("  Upstream STA address: ");
     Serial.println(WiFi.localIP());
-    // Arduino-ESP32 2.x does not expose the newer WiFi.AP NAPT wrapper.
-    // Use the underlying ESP-NETIF AP handle instead.
+    Serial.print("  AP DHCP DNS: ");
+    Serial.println(upstreamDNS);
+
     if (!WiFi.AP.enableNAPT(true)) {
         Serial.println("NAPT enable failed.");
         natEnabled = false;
@@ -285,7 +295,6 @@ bool tryWiFiNetwork(const char* ssid, const char* password, const char* label) {
         Serial.print(" network. IP: ");
         Serial.println(WiFi.localIP());
 
-        // This branch is specifically for validating the AP+STA+NAPT design.
         startNATAP();
         return true;
     }
@@ -330,8 +339,6 @@ void connectWiFi(bool forceFallback = false) {
         return;
     }
 
-    // Credentials entered on the fallback setup page are tried first, but
-    // never replace the compile-time primary or secondary configuration.
     if (configuredSavedWiFi()) {
         Serial.println("Trying saved Wi-Fi credentials first...");
         if (tryWiFiNetwork(WIFI_SSID.c_str(), WIFI_PASSWORD.c_str(), "saved")) {
@@ -514,9 +521,6 @@ void setup() {
             body = "";
         });
 
-    // Wi-Fi provisioning is intentionally available only while the ESP32 is
-    // running its protected fallback setup AP. Saving credentials restarts the
-    // ESP32 so it immediately attempts the new network.
     server.on("/api/wifi/configure", HTTP_POST, [](AsyncWebServerRequest* request) {}, nullptr,
         [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
             static String body;
@@ -578,7 +582,6 @@ void setup() {
         sendJson(request, doc);
     });
 
-    // Force an immediate rendezvous refresh after a remote connection failure.
     server.on("/api/remote/refresh", HTTP_POST, [](AsyncWebServerRequest* request) {
         if (!authorized(request)) { sendError(request, 401, "Unauthorized"); return; }
         bool found = lookupRemoteURL();
@@ -621,8 +624,6 @@ void setup() {
         String output;
         serializeJson(doc, output);
         AsyncWebServerResponse* response = request->beginResponse(200, "application/json", output);
-        // The status endpoint is intentionally public so a page loaded through
-        // steamlink.local can quickly probe a previously learned LAN IP.
         response->addHeader("Access-Control-Allow-Origin", "*");
         response->addHeader("Cache-Control", "no-store");
         request->send(response);
