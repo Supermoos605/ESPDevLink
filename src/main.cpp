@@ -122,7 +122,6 @@ void saveWiFiCredentials(const String& ssid, const String& password) {
     WIFI_PASSWORD = password;
     activeWiFiSSID = ssid;
     hasSavedWiFiCredentials = true;
-    wifiPreferences.remove("last_failure");
 }
 
 void recordWiFiFailure(const char* ssid, const String& reason) {
