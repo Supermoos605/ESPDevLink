@@ -484,6 +484,23 @@ void setup() {
         .setDefaultFile("index.html")
         .setCacheControl("no-cache");
 
+    // Captive-portal probe endpoints for recovery mode.
+    auto recoveryRedirect = [](AsyncWebServerRequest* request) {
+        if (wifiMode == "fallback_ap") {
+            request->redirect("http://192.168.4.1/");
+            return;
+        }
+        request->send(404, "text/plain", "404 Not Found");
+    };
+    server.on("/generate_204", HTTP_GET, recoveryRedirect);
+    server.on("/gen_204", HTTP_GET, recoveryRedirect);
+    server.on("/hotspot-detect.html", HTTP_GET, recoveryRedirect);
+    server.on("/connecttest.txt", HTTP_GET, recoveryRedirect);
+    server.on("/ncsi.txt", HTTP_GET, recoveryRedirect);
+    server.on("/success.txt", HTTP_GET, recoveryRedirect);
+    server.on("/fwlink", HTTP_GET, recoveryRedirect);
+    server.on("/canonical.html", HTTP_GET, recoveryRedirect);
+
     server.on("/api/wifi/scan", HTTP_GET, [](AsyncWebServerRequest* request) {
         if (wifiMode != "fallback_ap") {
             sendError(request, 409, "Wi-Fi recovery is not active");
