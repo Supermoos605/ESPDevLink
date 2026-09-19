@@ -7,10 +7,8 @@ import socket
 class HostEndpoint:
     host: str
     port: int = 8765
-    mdns_name: str = "steamlink.local"
-
     def as_dict(self) -> dict:
-        return {"host": self.host, "port": self.port, "mdns_name": self.mdns_name}
+        return {"host": self.host, "port": self.port}
 
 
 def local_address() -> str:
@@ -24,5 +22,5 @@ def local_address() -> str:
         sock.close()
 
 
-def get_endpoint(port: int = 8765, mdns_name: str = "steamlink.local") -> HostEndpoint:
-    return HostEndpoint(local_address(), port, mdns_name)
+def get_endpoint(port: int = 8765) -> HostEndpoint:
+    return HostEndpoint(local_address(), port)
