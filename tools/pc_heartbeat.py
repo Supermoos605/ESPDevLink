@@ -1,8 +1,8 @@
 """Send an authenticated PC heartbeat to an ESPLink gateway.
 
 Usage:
-    python tools/pc_heartbeat.py http://steamlink.local 192.168.1.50
-    python tools/pc_heartbeat.py http://steamlink.local 192.168.1.50 "Gaming PC" ESPSERVERACCESS
+    python tools/pc_heartbeat.py http://ESP32-IP 192.168.1.50
+    python tools/pc_heartbeat.py http://ESP32-IP 192.168.1.50 "Gaming PC" ESPSERVERACCESS
 """
 from __future__ import annotations
 
