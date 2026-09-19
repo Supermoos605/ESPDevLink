@@ -107,7 +107,434 @@ bool remoteOnline = false;
 unsigned long remoteCheckedAt = 0;
 constexpr unsigned long REMOTE_LOOKUP_INTERVAL_MS = 5000;
 
-bool pcOnline() { return (pcKnown && millis() - lastPCHeartbeat <= PC_TIMEOUT_MS) || remoteOnline; }
+bool pcOnline() { return remoteOnline; }
+
+void loadWiFiCredentials() {
+    wifiPreferences.begin("wifi", false);
+    hasSavedWiFiCredentials = wifiPreferences.isKey("ssid");
+    if (hasSavedWiFiCredentials) {
+        WIFI_SSID = wifiPreferences.getString("ssid", "");
+        WIFI_PASSWORD = wifiPreferences.getString("password", "");
+    } else {
+        WIFI_SSID = "";
+        WIFI_PASSWORD = "";
+    }
+    activeWiFiSSID = "";
+    wifiLastFailure = wifiPreferences.getString("last_failure", "");
+    Serial.print("Saved Wi-Fi SSID: ");
+    Serial.println(hasSavedWiFiCredentials && WIFI_SSID.length() ? WIFI_SSID : "(none)");
+}
+
+void saveWiFiCredentials(const String& ssid, const String& password) {
+    wifiPreferences.putString("ssid", ssid);
+    wifiPreferences.putString("password", password);
+    WIFI_SSID = ssid;
+    WIFI_PASSWORD = password;
+    activeWiFiSSID = ssid;
+    hasSavedWiFiCredentials = true;
+}
+
+void recordWiFiFailure(const char* ssid, const String& reason) {
+    if (ssid && strlen(ssid) > 0) wifiPreferences.putString("last_attempt_ssid", ssid);
+    wifiPreferences.putString("last_failure", reason);
+    wifiLastFailure = reason;
+}
+
+void clearWiFiFailure() {
+    wifiPreferences.remove("last_attempt_ssid");
+    wifiPreferences.remove("last_failure");
+    wifiLastFailure = "";
+}
+
+bool lookupRemoteURL() {
+    if (strlen(KEYVAL_KEY) < 10 || strlen(RENDEZVOUS_DEVICE_ID) == 0) {
+        remoteURL = "";
+        remoteOnline = false;
+        return false;
+    }
+    WiFiClientSecure client;
+    client.setInsecure();
+    HTTPClient http;
+    String endpoint = String(KEYVAL_BASE_URL) + "/get";
+    if (!http.begin(client, endpoint)) {
+        remoteOnline = false;
+        return false;
+    }
+    http.setTimeout(5000);
+    http.addHeader("Content-Type", "application/json");
+    String requestBody = String("{\"key\":\"") + KEYVAL_KEY + "\"}";
+    int code = http.POST(requestBody);
+    if (code != HTTP_CODE_OK) {
+        http.end();
+        remoteOnline = false;
+        return false;
+    }
+    String payload = http.getString();
+    http.end();
+    payload.trim();
+
+    JsonDocument responseDoc;
+    DeserializationError parseError = deserializeJson(responseDoc, payload);
+    if (parseError) {
+        remoteOnline = false;
+        remoteURL = "";
+        return false;
+    }
+
+    const char* value = responseDoc["val"] | "";
+    if (strlen(value) == 0 || strncmp(value, "https://", 8) != 0 ||
+        strstr(value, ".trycloudflare.com") == nullptr) {
+        remoteOnline = false;
+        remoteURL = "";
+        return false;
+    }
+
+    remoteURL = value;
+    remoteOnline = true;
+    return true;
+}
+
+void sendJson(AsyncWebServerRequest* request, JsonDocument& doc, int code = 200) {
+    String output;
+    serializeJson(doc, output);
+    request->send(code, "application/json", output);
+}
+
+void sendError(AsyncWebServerRequest* request, int code, const char* message) {
+    JsonDocument doc;
+    doc["ok"] = false;
+    doc["error"] = message;
+    sendJson(request, doc, code);
+}
+
+bool configuredWiFi() {
+    return strlen(DEFAULT_WIFI_SSID) > 0 && strcmp(DEFAULT_WIFI_SSID, "YOUR_WIFI_NAME") != 0;
+}
+
+bool configuredSavedWiFi() {
+    return hasSavedWiFiCredentials &&
+           WIFI_SSID.length() > 0 &&
+           WIFI_SSID != "YOUR_WIFI_NAME";
+}
+
+bool configuredFallbackWiFi() {
+    return strlen(FALLBACK_WIFI_SSID) > 0 &&
+           strcmp(FALLBACK_WIFI_SSID, "YOUR_FALLBACK_WIFI_NAME") != 0;
+}
+
+String wifiFailureReason() {
+    switch (WiFi.status()) {
+        case WL_NO_SSID_AVAIL: return "SSID not found";
+        case WL_CONNECT_FAILED: return "Connection failed (check password/security)";
+        case WL_CONNECTION_LOST: return "Connection lost";
+        case WL_DISCONNECTED: return "Disconnected / no association";
+        default: return "Wi-Fi connection timed out";
+    }
+}
+
+// Start the ESPDevLink AP alongside the already-connected STA interface and
+// enable ESP32 NAPT so AP clients can use the STA network as their uplink.
+// Arduino-ESP32 3.x exposes the AP NetworkInterface, which also lets us
+// provide the upstream DNS server to AP clients through DHCP.
+bool startNATAP() {
+    if (!configureNATAPAddress()) return false;
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("NAT AP not started: STA is not connected.");
+        return false;
+    }
+
+    WiFi.mode(WIFI_AP_STA);
+    delay(100);
+
+    // The ESP32 has one 2.4 GHz radio, so keep the SoftAP on the STA's
+    // currently selected channel.
+    const uint8_t apChannel = WiFi.channel();
+
+    // Advertise the ESP32 itself as DNS so local names such as "steamlink"
+    // can resolve to the ESPDevLink gateway. The DNS proxy forwards all
+    // other names to the upstream resolver.
+    IPAddress upstreamDNS = WiFi.dnsIP(0);
+    if (upstreamDNS == IPAddress(0, 0, 0, 0)) {
+        upstreamDNS = IPAddress(1, 1, 1, 1);
+    }
+
+    if (!WiFi.AP.config(
+            NAT_AP_IP,
+            NAT_AP_IP,
+            NAT_AP_SUBNET,
+            NAT_AP_LEASE_START,
+            NAT_AP_IP)) {
+        Serial.println("NAT AP IP/DHCP/DNS configuration failed.");
+        return false;
+    }
+
+    if (!WiFi.softAP(NAT_AP_NAME, NAT_AP_PASSWORD, apChannel, 0, 4)) {
+        Serial.println("NAT AP startup failed.");
+        return false;
+    }
+
+    natAPStarted = true;
+    Serial.println();
+    Serial.println("ESPDevLink client AP started.");
+    Serial.print("  SSID: ");
+    Serial.println(NAT_AP_NAME);
+    Serial.print("  Password: ");
+    Serial.println(NAT_AP_PASSWORD);
+    Serial.print("  AP address: http://");
+    Serial.println(WiFi.softAPIP());
+    Serial.print("  AP channel: ");
+    Serial.println(apChannel);
+    Serial.print("  Upstream STA address: ");
+    Serial.println(WiFi.localIP());
+    Serial.print("  AP DHCP DNS: ");
+    Serial.println(NAT_AP_IP);
+    Serial.print("  Upstream DNS: ");
+    Serial.println(upstreamDNS);
+
+    if (!WiFi.AP.enableNAPT(true)) {
+        Serial.println("NAPT enable failed.");
+        natEnabled = false;
+        wifiMode = "station_ap";
+        return false;
+    }
+
+    natEnabled = true;
+    wifiMode = "station_ap_nat";
+    Serial.println("NAPT enabled: AP clients now have the STA as their Internet uplink.");
+    return true;
+}
+
+bool tryWiFiNetwork(const char* ssid, const char* password, const char* label) {
+    if (ssid == nullptr || strlen(ssid) == 0) return false;
+
+    WiFi.disconnect(true, true);
+    delay(100);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    wifiAttempts++;
+
+    Serial.print("Connecting to ");
+    Serial.print(label);
+    Serial.print(" Wi-Fi (SSID: ");
+    Serial.print(ssid);
+    Serial.print(")");
+
+    const unsigned long startedAt = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startedAt < WIFI_TIMEOUT_MS) {
+        delay(250);
+        Serial.print('.');
+    }
+    Serial.println();
+
+    if (WiFi.status() == WL_CONNECTED) {
+        activeWiFiSSID = ssid;
+        activeWiFiPassword = password;
+        natReconnectPending = false;
+        wifiMode = "station";
+        Serial.print("Wi-Fi connected using ");
+        Serial.print(label);
+        Serial.print(" network. IP: ");
+        Serial.println(WiFi.localIP());
+
+        startNATAP();
+        return true;
+    }
+
+    recordWiFiFailure(ssid, wifiFailureReason());
+    Serial.print(label);
+    Serial.print(" Wi-Fi failure reason: ");
+    Serial.println(wifiLastFailure);
+    return false;
+}
+
+void startFallbackAP() {
+    WiFi.mode(WIFI_AP_STA);
+    bool started = WiFi.softAP(FALLBACK_AP_NAME, FALLBACK_AP_PASSWORD);
+    wifiMode = started ? "fallback_ap" : "disconnected";
+    Serial.print("Fallback AP: ");
+    Serial.println(started ? "started" : "failed");
+    if (started) {
+        Serial.print("AP address: http://");
+        Serial.println(WiFi.softAPIP());
+        Serial.print("AP password: ");
+        Serial.println(FALLBACK_AP_PASSWORD);
+    }
+}
+
+bool fallbackButtonHeld() {
+    pinMode(BOOT_BUTTON_PIN, INPUT_PULLUP);
+    if (digitalRead(BOOT_BUTTON_PIN) != LOW) return false;
+    Serial.println("BOOT button held; checking for forced fallback...");
+    const unsigned long startedAt = millis();
+    while (digitalRead(BOOT_BUTTON_PIN) == LOW && millis() - startedAt < FALLBACK_HOLD_MS) delay(25);
+    if (millis() - startedAt >= FALLBACK_HOLD_MS) {
+        Serial.println("Forced fallback requested.");
+        return true;
+    }
+    return false;
+}
+
+void connectWiFi(bool forceFallback = false) {
+    if (forceFallback) {
+        startFallbackAP();
+        return;
+    }
+
+    if (configuredSavedWiFi()) {
+        Serial.println("Trying saved Wi-Fi credentials first...");
+        if (tryWiFiNetwork(WIFI_SSID.c_str(), WIFI_PASSWORD.c_str(), "saved")) {
+            clearWiFiFailure();
+            return;
+        }
+    }
+
+    if (configuredWiFi()) {
+        Serial.println("Trying primary Wi-Fi network...");
+        if (tryWiFiNetwork(DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASSWORD, "primary")) {
+            clearWiFiFailure();
+            return;
+        }
+    } else {
+        Serial.println("Primary Wi-Fi credentials are not configured.");
+    }
+
+    if (configuredFallbackWiFi()) {
+        Serial.println("Primary Wi-Fi unavailable; trying secondary network...");
+        if (tryWiFiNetwork(FALLBACK_WIFI_SSID, FALLBACK_WIFI_PASSWORD, "secondary")) {
+            clearWiFiFailure();
+            return;
+        }
+    } else {
+        Serial.println("No secondary Wi-Fi network is configured.");
+    }
+
+    recordWiFiFailure("", "Saved, primary, and secondary Wi-Fi networks unavailable");
+    Serial.println("No configured Wi-Fi network could be reached.");
+    startFallbackAP();
+}
+
+bool authorized(AsyncWebServerRequest* request) {
+    if (activeSession.length() == 0) return false;
+    return request->hasHeader("X-ESPLink-Session") &&
+           request->getHeader("X-ESPLink-Session")->value() == activeSession;
+}
+
+bool pcAuthorized(AsyncWebServerRequest* request) {
+    if (pcSession.length() == 0) return false;
+    return request->hasHeader("X-ESPLink-PC-Session") &&
+           request->getHeader("X-ESPLink-PC-Session")->value() == pcSession;
+}
+
+#include <Arduino.h>
+#include <WiFi.h>
+#include <LittleFS.h>
+#include <Preferences.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+
+#include "../include/espdevlink_secrets.h"
+
+// Compile-time defaults stay in source; private credentials live in the ignored
+// include/espdevlink_secrets.h file and are never committed to GitHub.
+const char* DEFAULT_WIFI_SSID = ESPDEVLINK_WIFI_SSID;
+const char* DEFAULT_WIFI_PASSWORD = ESPDEVLINK_WIFI_PASSWORD;
+
+// Keep existing private config files compatible. Fallback credentials are
+// optional until the user adds them to espdevlink_secrets.h.
+#ifndef ESPDEVLINK_FALLBACK_WIFI_SSID
+#define ESPDEVLINK_FALLBACK_WIFI_SSID ""
+#endif
+#ifndef ESPDEVLINK_FALLBACK_WIFI_PASSWORD
+#define ESPDEVLINK_FALLBACK_WIFI_PASSWORD ""
+#endif
+
+const char* FALLBACK_WIFI_SSID = ESPDEVLINK_FALLBACK_WIFI_SSID;
+const char* FALLBACK_WIFI_PASSWORD = ESPDEVLINK_FALLBACK_WIFI_PASSWORD;
+const char* ACCESS_CODE = ESPDEVLINK_ACCESS_CODE;
+
+// Runtime Wi-Fi credentials entered through the fallback setup page are
+// stored separately from the compile-time primary and secondary networks.
+Preferences wifiPreferences;
+String WIFI_SSID;
+String WIFI_PASSWORD;
+String activeWiFiSSID;
+String activeWiFiPassword;
+bool hasSavedWiFiCredentials = false;
+
+// Cross-network rendezvous settings.
+const char* KEYVAL_BASE_URL = "https://api.keyval.org";
+const char* KEYVAL_KEY = ESPDEVLINK_KEYVAL_KEY;
+const char* RENDEZVOUS_DEVICE_ID = "gaming-pc";
+
+const char* FALLBACK_AP_NAME = "ESPDev-Recovery";
+const char* FALLBACK_AP_PASSWORD = "WifiRecovery";
+
+// ESPDevLink client network. Configure the SSID/password in the private
+// include/espdevlink_secrets.h file so the real client network is not hard-coded.
+#ifndef ESPDEVLINK_AP_SSID
+#define ESPDEVLINK_AP_SSID "ESPDevLink"
+#endif
+#ifndef ESPDEVLINK_AP_PASSWORD
+#define ESPDEVLINK_AP_PASSWORD "espdevlink"
+#endif
+const char* NAT_AP_NAME = ESPDEVLINK_AP_SSID;
+const char* NAT_AP_PASSWORD = ESPDEVLINK_AP_PASSWORD;
+
+IPAddress NAT_AP_IP;
+const IPAddress NAT_AP_SUBNET(255, 255, 255, 0);
+IPAddress NAT_AP_LEASE_START;
+
+bool configureNATAPAddress() {
+    IPAddress parsed;
+    if (!parsed.fromString(ESPDEVLINK_AP_IP)) {
+        Serial.print("Invalid ESPDEVLINK_AP_IP: ");
+        Serial.println(ESPDEVLINK_AP_IP);
+        return false;
+    }
+    NAT_AP_IP = parsed;
+    NAT_AP_LEASE_START = parsed;
+    NAT_AP_LEASE_START[3] = static_cast<uint8_t>(parsed[3] + 1);
+    return parsed[0] != 0 && parsed[3] < 254;
+}
+
+constexpr unsigned long WIFI_TIMEOUT_MS = 15000;
+constexpr uint8_t BOOT_BUTTON_PIN = 0; // Built-in BOOT button on ESP32 DevKit V1
+constexpr unsigned long FALLBACK_HOLD_MS = 3000;
+constexpr unsigned long PC_TIMEOUT_MS = 5000;
+constexpr size_t MAX_HEARTBEAT_BYTES = 2048;
+constexpr size_t MAX_WIFI_SSID_BYTES = 64;
+constexpr size_t MAX_WIFI_PASSWORD_BYTES = 64;
+
+AsyncWebServer server(80);
+String pcName = "Gaming PC";
+String pcIP = "";
+String currentGame = "";
+String streamState = "Ready";
+String pcConnectionMode = "AUTOMATIC";
+String wifiMode = "disconnected";
+String wifiLastFailure = "";
+uint8_t wifiAttempts = 0;
+bool natAPStarted = false;
+bool natEnabled = false;
+bool natReconnectPending = false;
+unsigned long natReconnectStartedAt = 0;
+unsigned long lastNatReconnectAttempt = 0;
+unsigned long lastNatAPCheck = 0;
+constexpr unsigned long NAT_RECONNECT_INTERVAL_MS = 5000;
+constexpr unsigned long NAT_AP_CHECK_INTERVAL_MS = 5000;
+String activeSession = "";
+String pcSession = "";
+unsigned long lastPCHeartbeat = 0;
+bool pcKnown = false;
+String remoteURL = "";
+bool remoteOnline = false;
+unsigned long remoteCheckedAt = 0;
+constexpr unsigned long REMOTE_LOOKUP_INTERVAL_MS = 5000;
+
+bool pcOnline() { return remoteOnline; }
 
 void loadWiFiCredentials() {
     wifiPreferences.begin("wifi", false);
@@ -724,28 +1151,13 @@ void setup() {
         request->send(response);
     });
 
-    server.on("/api/pc", HTTP_GET, [](AsyncWebServerRequest* request) {
-        JsonDocument doc;
-        doc["name"] = pcName;
-        doc["ip"] = pcIP;
-        doc["online"] = pcOnline();
-        doc["game"] = currentGame;
-        doc["stream"] = streamState;
-        doc["connection_mode"] = pcConnectionMode;
-        sendJson(request, doc);
-    });
-
-    server.on("/api/pc/heartbeat", HTTP_POST, [](AsyncWebServerRequest* request) {}, nullptr, handleHeartbeatBody);
-
     server.on("/api/connect", HTTP_POST, [](AsyncWebServerRequest* request) {
         if (!authorized(request)) { sendError(request, 401, "Unauthorized"); return; }
-        if (!pcOnline()) { sendError(request, 503, "PC is offline"); return; }
-        streamState = "Connecting";
+        if (!lookupRemoteURL()) { sendError(request, 503, "Remote host tunnel is unavailable"); return; }
         JsonDocument doc;
         doc["ok"] = true;
-        doc["pc"] = pcName;
-        doc["ip"] = pcIP;
-        doc["state"] = streamState;
+        doc["state"] = "CONNECTING";
+        doc["url"] = remoteURL;
         sendJson(request, doc);
     });
 
