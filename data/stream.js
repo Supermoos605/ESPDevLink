@@ -108,11 +108,11 @@ const offer=await peer.createOffer();await peer.setLocalDescription(offer);diag(
 async function sendSignal(message){const id=peerId;const p=peer;if(stopped||!id||!p)return;if(!p||p!==peer)return;diag('signal sent',message.type);await request(hostBase,'/api/webrtc/message',{method:'POST',headers:{'X-ESPLink-Peer':id},body:JSON.stringify(message)});}
 function fail(message){
 const failedRoute=window.ESPLinkConnectionMode;
-if(CONNECTION_MODE==='AUTOMATIC'&&(failedRoute==='LOCAL'||failedRoute==='REMOTE')){
+if(false){
   lastFailedConnectionRoute=failedRoute;
   diag('automatic fallback',failedRoute==='LOCAL'?'LOCAL failed; next retry will try REMOTE':'REMOTE failed; next retry will try LOCAL');
 }
-if(failedRoute==='REMOTE'||failedRoute==='FORCED_REMOTE'){
+if(failedRoute==='REMOTE'){
   window.ESPLinkConnectionTransition='REFRESHING REMOTE';
   window.ESPLinkDashboard?.update?.();
   refreshRemoteRoute();
