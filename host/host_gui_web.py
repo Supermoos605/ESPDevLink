@@ -382,8 +382,8 @@ class HostControlAPI:
         return message
 
     def open_esp32(self):
-        webbrowser.open("http://steamlink.local/")
-        message = "Opened ESP32 interface at http://steamlink.local/"
+        webbrowser.open("")
+        message = "Opened ESP32 interface at "
         self._append_output("[Control Center] " + message)
         return message
 
