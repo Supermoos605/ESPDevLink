@@ -8,6 +8,7 @@
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+#include <esp_netif.h>
 
 #include "../include/espdevlink_secrets.h"
 
@@ -51,9 +52,9 @@ const char* FALLBACK_AP_PASSWORD = "esp-link-setup";
 const char* NAT_AP_NAME = "ESPDevLink-NAT-Test";
 const char* NAT_AP_PASSWORD = "espdevlink";
 
-constexpr IPAddress NAT_AP_IP(192, 168, 4, 1);
-constexpr IPAddress NAT_AP_SUBNET(255, 255, 255, 0);
-constexpr IPAddress NAT_AP_LEASE_START(192, 168, 4, 2);
+const IPAddress NAT_AP_IP(192, 168, 4, 1);
+const IPAddress NAT_AP_SUBNET(255, 255, 255, 0);
+const IPAddress NAT_AP_LEASE_START(192, 168, 4, 2);
 
 constexpr unsigned long WIFI_TIMEOUT_MS = 15000;
 constexpr uint8_t BOOT_BUTTON_PIN = 0; // Built-in BOOT button on ESP32 DevKit V1
@@ -200,7 +201,7 @@ String wifiFailureReason() {
 
 // Start the ESPDevLink AP alongside the already-connected STA interface and
 // enable ESP32 NAPT so AP clients can use the STA network as their uplink.
-// Arduino-ESP32 3.x exposes this through WiFi.AP.enableNAPT().
+// Use the ESP-NETIF API so this also compiles with Arduino-ESP32 2.x.
 bool startNATAP() {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("NAT AP not started: STA is not connected.");
@@ -213,14 +214,11 @@ bool startNATAP() {
     // The ESP32 has one 2.4 GHz radio, so keep the SoftAP on the STA's
     // currently selected channel.
     const uint8_t apChannel = WiFi.channel();
-    const IPAddress upstreamDNS = WiFi.dnsIP(0);
-
     if (!WiFi.softAPConfig(
             NAT_AP_IP,
             NAT_AP_IP,
             NAT_AP_SUBNET,
-            NAT_AP_LEASE_START,
-            upstreamDNS)) {
+            NAT_AP_LEASE_START)) {
         Serial.println("NAT AP IP/DHCP configuration failed.");
         return false;
     }
@@ -243,12 +241,10 @@ bool startNATAP() {
     Serial.println(apChannel);
     Serial.print("  Upstream STA address: ");
     Serial.println(WiFi.localIP());
-    Serial.print("  Upstream DNS: ");
-    Serial.println(upstreamDNS);
-
-    // The current Arduino-ESP32 3.x network API exposes NAPT directly on
-    // the AP interface. The STA remains the default/upstream interface.
-    if (!WiFi.AP.enableNAPT(true)) {
+    // Arduino-ESP32 2.x does not expose the newer WiFi.AP NAPT wrapper.
+    // Use the underlying ESP-NETIF AP handle instead.
+    esp_netif_t* apNetif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+    if (apNetif == nullptr || esp_netif_napt_enable(apNetif) != ESP_OK) {
         Serial.println("NAPT enable failed.");
         natEnabled = false;
         wifiMode = "station_ap";
@@ -676,14 +672,16 @@ void setup() {
 
 void loop() {
     if (WiFi.status() == WL_CONNECTED && natAPStarted && !natEnabled) {
-        natEnabled = WiFi.AP.enableNAPT(true);
+        esp_netif_t* apNetif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+        natEnabled = apNetif != nullptr && esp_netif_napt_enable(apNetif) == ESP_OK;
         if (natEnabled) {
             wifiMode = "station_ap_nat";
             Serial.println("NAPT re-enabled after STA recovery.");
         }
     }
     if (WiFi.status() != WL_CONNECTED && natEnabled) {
-        WiFi.AP.enableNAPT(false);
+        esp_netif_t* apNetif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+        if (apNetif != nullptr) esp_netif_napt_disable(apNetif);
         natEnabled = false;
         if (natAPStarted) wifiMode = "station_ap_no_uplink";
         Serial.println("STA uplink lost; NAPT disabled.");
