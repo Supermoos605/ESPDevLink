@@ -105,7 +105,7 @@ class HostHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
         origin = self.headers.get("Origin", "")
-        if origin and origin.rstrip("/") not in CORS_ORIGINS:
+        if origin and "*" not in CORS_ORIGINS and origin.rstrip("/") not in CORS_ORIGINS:
             self.send_json({"ok": False, "error": "Origin not allowed"}, 403)
             return
         self.send_json({"ok": True})
