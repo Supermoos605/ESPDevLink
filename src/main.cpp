@@ -76,7 +76,6 @@ bool configureNATAPAddress() {
 constexpr unsigned long WIFI_TIMEOUT_MS = 15000;
 constexpr uint8_t BOOT_BUTTON_PIN = 0; // Built-in BOOT button on ESP32 DevKit V1
 constexpr unsigned long FALLBACK_HOLD_MS = 3000;
-constexpr size_t MAX_HEARTBEAT_BYTES = 2048;
 constexpr size_t MAX_WIFI_SSID_BYTES = 64;
 constexpr size_t MAX_WIFI_PASSWORD_BYTES = 64;
 
@@ -619,12 +618,6 @@ void setup() {
         doc["nat_ap_ssid"] = NAT_AP_NAME;
         doc["nat_ap_clients"] = WiFi.softAPgetStationNum();
         doc["nat_ap_ip"] = WiFi.softAPIP().toString();
-        doc["pc_online"] = pcOnline();
-        doc["pc_name"] = pcName;
-        doc["pc_ip"] = pcIP;
-        doc["pc_game"] = currentGame;
-        doc["pc_stream"] = streamState;
-        doc["pc_connection_mode"] = pcConnectionMode;
         doc["remote_online"] = remoteOnline;
         doc["remote_url"] = remoteURL;
         String output;
@@ -633,25 +626,6 @@ void setup() {
         response->addHeader("Access-Control-Allow-Origin", "*");
         response->addHeader("Cache-Control", "no-store");
         request->send(response);
-    });
-
-    server.on("/api/connect", HTTP_POST, [](AsyncWebServerRequest* request) {
-        if (!authorized(request)) { sendError(request, 401, "Unauthorized"); return; }
-        if (!lookupRemoteURL()) { sendError(request, 503, "Remote host tunnel is unavailable"); return; }
-        JsonDocument doc;
-        doc["ok"] = true;
-        doc["state"] = "CONNECTING";
-        doc["url"] = remoteURL;
-        sendJson(request, doc);
-    });
-
-    server.on("/api/disconnect", HTTP_POST, [](AsyncWebServerRequest* request) {
-        if (!authorized(request)) { sendError(request, 401, "Unauthorized"); return; }
-        streamState = "Ready";
-        JsonDocument doc;
-        doc["ok"] = true;
-        doc["state"] = streamState;
-        sendJson(request, doc);
     });
 
     server.onNotFound([](AsyncWebServerRequest* request) { request->send(404, "text/plain", "404 Not Found"); });
