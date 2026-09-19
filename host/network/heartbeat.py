@@ -121,7 +121,7 @@ def main() -> None:
     print("====================================")
     print(f"PC name: {get_pc_name()}")
     print(f"PC IP:   {get_local_ip()}")
-    print(f"ESPLink: {ESP32_URL}")
+    print(f"ESPLink: {ESP32_URL or 'not configured'}")
     print(f"Accept connections: {'yes' if ALLOW_CONNECTIONS else 'no'}")
     mode = os.environ.get("ESPLINK_CONNECTION_MODE", "AUTOMATIC").upper()
     if mode in {"REMOTE", "FORCE_REMOTE"}:
@@ -130,7 +130,7 @@ def main() -> None:
         print("The Quick Tunnel + KeyVal rendezvous handles the remote path.")
         return
 
-    print("Starting heartbeat...\n")
+    if not ESP32_URL:\n        print("ESP32 address is not configured. Set ESPLINK_ESP32 to the ESP32 LAN address.")\n        return\n\n    print("Starting heartbeat...\n")
 
     while True:
         try:
