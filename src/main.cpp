@@ -679,19 +679,14 @@ void setup() {
 }
 
 void loop() {
-    if (WiFi.status() == WL_CONNECTED && natAPStarted && !natEnabled) {
-        natEnabled = WiFi.AP.enableNAPT(true);
+    if (natAPStarted && WiFi.status() != WL_CONNECTED) {
         if (natEnabled) {
-            wifiMode = "station_ap_nat";
-            Serial.println("NAPT re-enabled after STA recovery.");
+            WiFi.AP.enableNAPT(false);
+            natEnabled = false;
+            wifiMode = "station_ap_no_uplink";
+            Serial.println("STA uplink lost; NAPT disabled.");
         }
-    }
-    if (WiFi.status() != WL_CONNECTED && natEnabled) {
-        WiFi.AP.enableNAPT(false);
-        natEnabled = false;
-        if (natAPStarted) wifiMode = "station_ap_no_uplink";
         natReconnectPending = true;
-        Serial.println("STA uplink lost; NAPT disabled.");
     }
 
     if (natAPStarted && natReconnectPending && activeWiFiSSID.length() > 0 &&
@@ -709,6 +704,7 @@ void loop() {
             natEnabled = true;
             wifiMode = "station_ap_nat";
             wifiLastFailure = "";
+            natReconnectStartedAt = 0;
             Serial.println("NAT uplink restored; NAPT re-enabled.");
         }
     }
