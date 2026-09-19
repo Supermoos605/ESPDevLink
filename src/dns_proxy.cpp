@@ -196,7 +196,11 @@ void processDNS() {
             continue;
         }
 
-        if (upstreamDNS == IPAddress(0, 0, 0, 0)) continue;
+        // Recovery mode has no upstream DNS, so answer all names locally.
+        if (WiFi.status() != WL_CONNECTED || upstreamDNS == IPAddress(0, 0, 0, 0)) {
+            answerLocal(packet, static_cast<size_t>(length), remoteIP, remotePort);
+            continue;
+        }
 
         uint16_t id = (static_cast<uint16_t>(packet[0]) << 8) | packet[1];
         rememberForwardedQuery(id, remoteIP, remotePort);
@@ -212,16 +216,17 @@ void dnsTask(void*) {
         if (!dnsStarted) {
             // Wait until the NAT AP has actually been created by main.cpp.
             IPAddress apIP = WiFi.softAPIP();
-            if (apIP == IPAddress(192, 168, 4, 1) && WiFi.status() == WL_CONNECTED) {
-                upstreamDNS = WiFi.dnsIP(0);
-                if (upstreamDNS == IPAddress(0, 0, 0, 0)) {
+            if (apIP == IPAddress(192, 168, 4, 1)) {
+                upstreamDNS = WiFi.status() == WL_CONNECTED ? WiFi.dnsIP(0) : IPAddress(0, 0, 0, 0);
+                if (WiFi.status() == WL_CONNECTED && upstreamDNS == IPAddress(0, 0, 0, 0)) {
                     upstreamDNS = IPAddress(1, 1, 1, 1);
                 }
 
                 if (dnsUDP.begin(DNS_PORT)) {
                     dnsStarted = true;
                     Serial.print("ESPDevLink DNS proxy started on 192.168.4.1:53; upstream DNS: ");
-                    Serial.println(upstreamDNS);
+                    if (upstreamDNS == IPAddress(0, 0, 0, 0)) Serial.println("none (recovery mode)");
+                    else Serial.println(upstreamDNS);
                 }
             }
         } else if (WiFi.status() != WL_CONNECTED || WiFi.softAPIP() != IPAddress(192, 168, 4, 1)) {
