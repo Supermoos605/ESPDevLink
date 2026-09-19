@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiUdp.h>
 #include <ESPmDNS.h>
 #include <LittleFS.h>
 #include <Preferences.h>
@@ -51,13 +50,11 @@ constexpr unsigned long WIFI_TIMEOUT_MS = 15000;
 constexpr uint8_t BOOT_BUTTON_PIN = 0; // Built-in BOOT button on ESP32 DevKit V1
 constexpr unsigned long FALLBACK_HOLD_MS = 3000;
 constexpr unsigned long PC_TIMEOUT_MS = 5000;
-constexpr uint16_t DISCOVERY_PORT = 4210;
 constexpr size_t MAX_HEARTBEAT_BYTES = 2048;
 constexpr size_t MAX_WIFI_SSID_BYTES = 64;
 constexpr size_t MAX_WIFI_PASSWORD_BYTES = 64;
 
 AsyncWebServer server(80);
-WiFiUDP discoveryUDP;
 String pcName = "Gaming PC";
 String pcIP = "";
 String currentGame = "";
@@ -74,26 +71,9 @@ bool mdnsReady = false;
 String remoteURL = "";
 bool remoteOnline = false;
 unsigned long remoteCheckedAt = 0;
-constexpr unsigned long REMOTE_LOOKUP_INTERVAL_MS = 30000;
+constexpr unsigned long REMOTE_LOOKUP_INTERVAL_MS = 5000;
 
-bool pcOnline() { return pcKnown && millis() - lastPCHeartbeat <= PC_TIMEOUT_MS; }
-
-void handleDiscovery() {
-    if (WiFi.status() != WL_CONNECTED) return;
-    int packetSize = discoveryUDP.parsePacket();
-    if (packetSize <= 0) return;
-
-    char buffer[64];
-    int length = discoveryUDP.read(buffer, sizeof(buffer) - 1);
-    if (length <= 0) return;
-    buffer[length] = '\0';
-    if (strcmp(buffer, "ESPDEVLINK_DISCOVER") != 0) return;
-
-    const String response = String("ESPDEVLINK ") + WiFi.localIP().toString();
-    discoveryUDP.beginPacket(discoveryUDP.remoteIP(), discoveryUDP.remotePort());
-    discoveryUDP.print(response);
-    discoveryUDP.endPacket();
-}
+bool pcOnline() { return (pcKnown && millis() - lastPCHeartbeat <= PC_TIMEOUT_MS) || remoteOnline; }
 
 void loadWiFiCredentials() {
     wifiPreferences.begin("wifi", false);
@@ -396,11 +376,6 @@ void setup() {
     const bool forceFallback = fallbackButtonHeld();
     connectWiFi(forceFallback);
     startMDNS();
-    if (WiFi.status() == WL_CONNECTED) {
-        discoveryUDP.begin(DISCOVERY_PORT);
-        Serial.print("LAN discovery responder started on UDP ");
-        Serial.println(DISCOVERY_PORT);
-    }
 
     server.serveStatic("/", LittleFS, "/")
         .setDefaultFile("index.html")
@@ -613,9 +588,8 @@ void setup() {
 }
 
 void loop() {
-    handleDiscovery();
     if (WiFi.status() == WL_CONNECTED && wifiMode != "station") wifiMode = "station";
-    if (WiFi.status() == WL_CONNECTED && strlen(KEYVAL_KEY) >= 10 && millis() - remoteCheckedAt >= REMOTE_LOOKUP_INTERVAL_MS) {
+    if (WiFi.status() == WL_CONNECTED && strlen(KEYVAL_KEY) >= 10 && (remoteCheckedAt == 0 || millis() - remoteCheckedAt >= REMOTE_LOOKUP_INTERVAL_MS)) {
         lookupRemoteURL();
         remoteCheckedAt = millis();
     }
