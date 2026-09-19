@@ -3,7 +3,7 @@
 #include <WiFiUdp.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include "espdevlink_secrets.example.h"
+
 
 namespace {
 
@@ -101,7 +101,8 @@ void answerLocal(const uint8_t* query, size_t length, const IPAddress& clientIP,
     response[out++] = 0x00;
     response[out++] = 0x04; // IPv4 length
 
-    IPAddress ip(ESPDEVLINK_AP_IP_1, ESPDEVLINK_AP_IP_2, ESPDEVLINK_AP_IP_3, ESPDEVLINK_AP_IP_4);
+    IPAddress ip;
+    if (!ip.fromString(ESPDEVLINK_AP_IP)) return;
     for (uint8_t i = 0; i < 4; ++i) {
         response[out++] = ip[i];
     }
@@ -171,8 +172,7 @@ void processDNS() {
 
         // Responses from the upstream resolver are relayed to the original
         // iPad/client. Client queries arrive from the ESPDevLink AP subnet.
-        if (dnsStarted && remoteIP != IPAddress(ESPDEVLINK_AP_IP_1, ESPDEVLINK_AP_IP_2, ESPDEVLINK_AP_IP_3, ESPDEVLINK_AP_IP_4) &&
-            remoteIP != IPAddress(ESPDEVLINK_AP_IP_1, ESPDEVLINK_AP_IP_2, ESPDEVLINK_AP_IP_3, ESPDEVLINK_AP_IP_4 + 1) &&
+        if (dnsStarted && remoteIP != NAT_AP_IP && remoteIP != NAT_AP_LEASE_START &&
             remoteIP == upstreamDNS) {
             if (forwardResponse(packet, static_cast<size_t>(length))) continue;
         }
@@ -206,7 +206,7 @@ void dnsTask(void*) {
         if (!dnsStarted) {
             // Wait until the NAT AP has actually been created by main.cpp.
             IPAddress apIP = WiFi.softAPIP();
-            if (apIP == IPAddress(ESPDEVLINK_AP_IP_1, ESPDEVLINK_AP_IP_2, ESPDEVLINK_AP_IP_3, ESPDEVLINK_AP_IP_4)) {
+            if (apIP == NAT_AP_IP) {
                 upstreamDNS = WiFi.status() == WL_CONNECTED ? WiFi.dnsIP(0) : IPAddress(0, 0, 0, 0);
                 if (WiFi.status() == WL_CONNECTED && upstreamDNS == IPAddress(0, 0, 0, 0)) {
                     upstreamDNS = IPAddress(1, 1, 1, 1);
@@ -215,13 +215,13 @@ void dnsTask(void*) {
                 if (dnsUDP.begin(DNS_PORT)) {
                     dnsStarted = true;
                     Serial.print("ESPDevLink DNS proxy started on ");
-                    Serial.print(IPAddress(ESPDEVLINK_AP_IP_1, ESPDEVLINK_AP_IP_2, ESPDEVLINK_AP_IP_3, ESPDEVLINK_AP_IP_4));
+                    Serial.print(NAT_AP_IP);
                     Serial.print(":53; upstream DNS: ");
                     if (upstreamDNS == IPAddress(0, 0, 0, 0)) Serial.println("none (recovery mode)");
                     else Serial.println(upstreamDNS);
                 }
             }
-        } else if (WiFi.softAPIP() != IPAddress(ESPDEVLINK_AP_IP_1, ESPDEVLINK_AP_IP_2, ESPDEVLINK_AP_IP_3, ESPDEVLINK_AP_IP_4)) {
+        } else if (WiFi.softAPIP() != NAT_AP_IP) {
             dnsUDP.stop();
             dnsStarted = false;
         } else {
