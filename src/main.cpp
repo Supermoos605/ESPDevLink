@@ -78,7 +78,9 @@ bool natEnabled = false;
 bool natReconnectPending = false;
 unsigned long natReconnectStartedAt = 0;
 unsigned long lastNatReconnectAttempt = 0;
+unsigned long lastNatAPCheck = 0;
 constexpr unsigned long NAT_RECONNECT_INTERVAL_MS = 5000;
+constexpr unsigned long NAT_AP_CHECK_INTERVAL_MS = 5000;
 String activeSession = "";
 String pcSession = "";
 unsigned long lastPCHeartbeat = 0;
@@ -716,6 +718,26 @@ void loop() {
         wifiLastFailure = wifiFailureReason();
         Serial.print("NAT uplink reconnect timed out: ");
         Serial.println(wifiLastFailure);
+    }
+
+    // Keep the SoftAP alive if the AP interface is unexpectedly stopped.
+    // This is checked separately from the STA reconnect path so the iPad can
+    // remain associated with the ESPDevLink network during upstream recovery.
+    if (WiFi.status() == WL_CONNECTED && millis() - lastNatAPCheck >= NAT_AP_CHECK_INTERVAL_MS) {
+        lastNatAPCheck = millis();
+        const bool apIsUp = natAPStarted && WiFi.softAPIP() == NAT_AP_IP;
+        if (!apIsUp) {
+            Serial.println("NAT AP is not running; restarting AP/NAPT.");
+            natAPStarted = false;
+            natEnabled = false;
+            startNATAP();
+        } else if (!natEnabled) {
+            natEnabled = WiFi.AP.enableNAPT(true);
+            if (natEnabled) {
+                wifiMode = "station_ap_nat";
+                Serial.println("NAPT restored while NAT AP remained active.");
+            }
+        }
     }
 
     if (WiFi.status() == WL_CONNECTED && strlen(KEYVAL_KEY) >= 10 && (remoteCheckedAt == 0 || millis() - remoteCheckedAt >= REMOTE_LOOKUP_INTERVAL_MS)) {
