@@ -34,7 +34,7 @@ After boot, the serial monitor should show:
 
 - `LittleFS mounted.`
 - Wi-Fi connected or fallback AP started
-- `mDNS available at: http://steamlink.local`
+- `mDNS available at: http://the printed ESP32 IP address`
 - `Web server started.`
 
 Open the printed address in a browser and check:
@@ -66,7 +66,7 @@ The `online` field should become `true`.
 The ESP32 test is successful when:
 
 - The board boots without hanging.
-- The browser opens `steamlink.local` or the printed IP address.
+- The browser opens `the printed ESP32 IP address` or the printed IP address.
 - `/api/status` reports the gateway online.
 - `/api/pc` reports the Windows host online.
 - The landing page changes from `OFFLINE` to `ONLINE`.
