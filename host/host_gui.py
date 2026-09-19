@@ -59,7 +59,7 @@ FONT = "Inter"
 
 
 class SteamButton(tk.Canvas):
-    """SteamLink.local-style rounded button with matching colors and typography."""
+    """ESPDevLink-style rounded button with matching colors and typography."""
 
     def __init__(self, parent, text="", command=None, accent=False, **kwargs):
         self._label = text
@@ -1097,7 +1097,7 @@ class ESPDevLinkGUI(tk.Tk):
             from .config import ESP32_URL
             url = ESP32_URL
         except ImportError:
-            url = "http://steamlink.local"
+            url = ""
         webbrowser.open(url)
         self._log(f"Opened ESP32 interface: {url}")
 
