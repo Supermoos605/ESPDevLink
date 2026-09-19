@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080a0f">
+<title>ESPDevLink Recovery</title>
+<style>
+:root{font-family:Inter,system-ui,sans-serif;color:#f5f7fb;background:#080a0f}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#080a0f}
+.shell{width:min(620px,100%);margin:auto;padding:22px 16px 36px}
+.top{display:flex;align-items:center;gap:11px;margin-bottom:22px}
+.logo{width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,#6d7cff,#8d50ff);display:grid;place-items:center}
+.logo:before{content:"";width:17px;height:17px;border:3px solid white;border-radius:6px}
+.brand h1{font-size:19px;margin:0}.brand span{display:block;color:#7f899c;font-size:11px;margin-top:2px}
+.hero,.panel{border:1px solid #ffffff12;background:#11151f;border-radius:20px;padding:20px;margin-bottom:12px}
+.eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#8995ad;margin-bottom:8px}
+h2{font-size:28px;line-height:1.05;margin:0 0 10px;letter-spacing:-1px}
+p{color:#9ca6b8;font-size:12px;line-height:1.55;margin:0}
+.notice{margin-top:15px;padding:12px;border-radius:12px;background:#07090e;border:1px solid #ffffff0d;color:#c8cfdd;font-size:11px}
+label{display:block;color:#8d98ab;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin:13px 0 6px}
+input,select{width:100%;border:1px solid #ffffff14;background:#07090e;color:#f5f7fb;border-radius:10px;padding:12px;font:inherit;font-size:13px;outline:none}
+input:focus,select:focus{border-color:#7180ff}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}
+button{border:0;border-radius:11px;padding:12px;font-size:12px;font-weight:800;cursor:pointer}
+.primary{background:linear-gradient(135deg,#6476ff,#9257ff);color:white}
+.secondary{background:#ffffff0d;color:#e5e9f2;border:1px solid #ffffff12}
+button:disabled{opacity:.45;cursor:not-allowed}
+.status{font-size:11px;color:#9ca6b8;min-height:17px;margin-top:10px}
+.status.ok{color:#52e4a0}.status.error{color:#ff7180}
+.scan-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.scan-row h3{margin:0;font-size:14px}.scan-row button{padding:8px 10px}
+.saved{font-size:11px;color:#727d91;margin-top:4px}
+.footer{text-align:center;color:#596477;font-size:9px;margin-top:18px}
+</style>
+</head>
+<body>
+<main class="shell">
+<header class="top"><div class="logo"></div><div class="brand"><h1>ESPDevLink</h1><span>Recovery &amp; network setup</span></div></header>
+<section class="hero">
+<div class="eyebrow">Recovery mode</div>
+<h2>Let's get ESPDevLink back online.</h2>
+<p>The ESP32 could not connect to its configured Wi-Fi network. Choose a network below, enter its password, and ESPDevLink will save the settings and restart.</p>
+<div class="notice"><strong>Recovery network:</strong> ESPDev-Recovery &nbsp;·&nbsp; <strong>Gateway:</strong> 192.168.4.1</div>
+</section>
+<section class="panel">
+<div class="scan-row"><div><h3>Wi-Fi network</h3><div class="saved" id="saved">No saved network</div></div><button class="secondary" id="scan" type="button">SCAN</button></div>
+<select id="ssid"><option value="">Select a network…</option></select>
+<label for="password">Wi-Fi password</label>
+<input id="password" type="password" autocomplete="off" maxlength="64" placeholder="Enter password">
+<div class="actions"><button class="primary" id="save">SAVE &amp; RESTART</button><button class="secondary" id="clear" type="button">CLEAR SAVED WI-FI</button></div>
+<div class="status" id="status"></div>
+</section>
+<div class="footer">ESPDevLink · Recovery network</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+async function api(url,options={}){const r=await fetch(url,{...options,cache:'no-store'});const j=await r.json();if(!r.ok||j.ok===false)throw new Error(j.error||'Request failed');return j}
+async function scan(){
+ $('scan').disabled=true;$('scan').textContent='SCANNING...';$('status').textContent='Looking for nearby 2.4 GHz networks...';$('status').className='status';
+ try{
+  const j=await api('/api/wifi/scan');
+  const select=$('ssid');const current=select.value;select.innerHTML='<option value="">Select a network…</option>';
+  for(const n of j.networks||[]){const o=document.createElement('option');o.value=n.ssid;o.textContent=n.ssid+(n.rssi!==undefined?' ('+n.rssi+' dBm)':'');select.appendChild(o)}
+  if(current)select.value=current;
+  $('status').textContent=(j.networks||[]).length+' network(s) found.';
+ }catch(e){$('status').textContent=e.message;$('status').className='status error'}
+ $('scan').disabled=false;$('scan').textContent='SCAN';
+}
+$('save').onclick=async()=>{
+ const ssid=$('ssid').value.trim();
+ if(!ssid){$('status').textContent='Select a Wi-Fi network first.';$('status').className='status error';return}
+ $('save').disabled=true;$('clear').disabled=true;$('status').textContent='Saving and restarting...';$('status').className='status';
+ try{await api('/api/wifi/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ssid,password:$('password').value})});}
+ catch(e){$('status').textContent=e.message;$('status').className='status error';$('save').disabled=false;$('clear').disabled=false}
+};
+$('clear').onclick=async()=>{
+ if(!confirm('Clear the saved Wi-Fi network?'))return;
+ $('clear').disabled=true;$('status').textContent='Clearing saved Wi-Fi...';
+ try{await api('/api/wifi/clear',{method:'POST'});$('saved').textContent='No saved network';$('status').textContent='Saved Wi-Fi cleared.';$('status').className='status ok';}
+ catch(e){$('status').textContent=e.message;$('status').className='status error';$('clear').disabled=false}
+};
+$('scan').onclick=scan;
+scan();
+</script>
+</body>
+</html>
