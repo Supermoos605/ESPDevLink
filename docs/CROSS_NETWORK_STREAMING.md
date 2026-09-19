@@ -63,7 +63,7 @@ Set the host configuration:
 
 ```powershell
 $env:ESPLINK_PUBLIC_URL="https://stream.example.com"
-$env:ESPLINK_CORS_ORIGINS="http://steamlink.local"
+$env:ESPLINK_CORS_ORIGINS="http://<ESP32-IP>"
 $env:ESPLINK_ICE_SERVERS='[{"urls":["stun:stun.example.com:3478"]},{"urls":["turns:turn.example.com:5349"],"username":"temporary-user","credential":"temporary-password"}]'
 ```
 
