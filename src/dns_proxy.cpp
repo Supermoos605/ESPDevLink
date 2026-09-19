@@ -218,10 +218,16 @@ void dnsTask(void*) {
                     else Serial.println(upstreamDNS);
                 }
             }
-        } else if (WiFi.status() != WL_CONNECTED || WiFi.softAPIP() != IPAddress(192, 168, 4, 1)) {
+        } else if (WiFi.softAPIP() != IPAddress(192, 168, 4, 1)) {
             dnsUDP.stop();
             dnsStarted = false;
         } else {
+            // Keep the DNS server alive while the recovery AP is active even
+            // when the ESP32 has no upstream Wi-Fi connection.
+            if (WiFi.status() == WL_CONNECTED && upstreamDNS == IPAddress(0, 0, 0, 0)) {
+                upstreamDNS = WiFi.dnsIP(0);
+                if (upstreamDNS == IPAddress(0, 0, 0, 0)) upstreamDNS = IPAddress(1, 1, 1, 1);
+            }
             processDNS();
         }
 
