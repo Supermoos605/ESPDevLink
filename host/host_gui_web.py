@@ -11,6 +11,9 @@ import threading
 import urllib.request
 import urllib.error
 import webbrowser
+import atexit
+import ctypes
+from ctypes import wintypes
 from collections import deque
 from pathlib import Path
 
@@ -30,12 +33,88 @@ HTML = Path(__file__).with_name("host_gui_web.html")
 ICON = BUNDLE_ROOT / "data" / "espdevlink.ico"
 
 
+# Keep child processes owned by the Control Center. Windows will terminate
+# every process in this job when the Control Center exits.
+JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+JobObjectExtendedLimitInformation = 9
+
+
+class _JobObject:
+    def __init__(self):
+        self.handle = None
+        if os.name != "nt":
+            return
+        self._kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        self._kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+        self.handle = self._kernel32.CreateJobObjectW(None, None)
+        if not self.handle:
+            self.handle = None
+            return
+
+        class BasicLimit(ctypes.Structure):
+            _fields_ = [
+                ("PerProcessUserTimeLimit", ctypes.c_longlong),
+                ("PerJobUserTimeLimit", ctypes.c_longlong),
+                ("LimitFlags", wintypes.DWORD),
+                ("MinimumWorkingSetSize", ctypes.c_size_t),
+                ("MaximumWorkingSetSize", ctypes.c_size_t),
+                ("ActiveProcessLimit", wintypes.DWORD),
+                ("Affinity", ctypes.c_size_t),
+                ("PriorityClass", wintypes.DWORD),
+                ("SchedulingClass", wintypes.DWORD),
+            ]
+        class IoCounters(ctypes.Structure):
+            _fields_ = [
+                ("ReadOperationCount", ctypes.c_ulonglong),
+                ("WriteOperationCount", ctypes.c_ulonglong),
+                ("OtherOperationCount", ctypes.c_ulonglong),
+                ("ReadTransferCount", ctypes.c_ulonglong),
+                ("WriteTransferCount", ctypes.c_ulonglong),
+                ("OtherTransferCount", ctypes.c_ulonglong),
+            ]
+        class ExtendedLimit(ctypes.Structure):
+            _fields_ = [
+                ("BasicLimitInformation", BasicLimit),
+                ("IoInfo", IoCounters),
+                ("ProcessMemoryLimit", ctypes.c_size_t),
+                ("JobMemoryLimit", ctypes.c_size_t),
+                ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                ("PeakJobMemoryUsed", ctypes.c_size_t),
+            ]
+
+        info = ExtendedLimit()
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        self._kernel32.SetInformationJobObject.argtypes = [wintypes.HANDLE, wintypes.INT, ctypes.c_void_p, wintypes.DWORD]
+        self._kernel32.SetInformationJobObject.restype = wintypes.BOOL
+        if not self._kernel32.SetInformationJobObject(
+            self.handle, JobObjectExtendedLimitInformation,
+            ctypes.byref(info), ctypes.sizeof(info)
+        ):
+            self._kernel32.CloseHandle(self.handle)
+            self.handle = None
+            return
+
+        self._kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        self._kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+
+    def add(self, process):
+        if not self.handle or process.poll() is not None:
+            return
+        self._kernel32.AssignProcessToJobObject(self.handle, wintypes.HANDLE(process._handle))
+
+    def close(self):
+        if self.handle:
+            self._kernel32.CloseHandle(self.handle)
+            self.handle = None
+
+
 class HostControlAPI:
     def __init__(self):
         self.processes = []
         self.output_lines = deque(maxlen=3000)
         self.output_lock = threading.Lock()
         self.host_session = ""
+        self.job = _JobObject()
 
     def _python(self):
         p = ROOT / ".venv" / "Scripts" / "python.exe"
@@ -92,6 +171,7 @@ class HostControlAPI:
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
             self.processes.append(process)
+            self.job.add(process)
             threading.Thread(
                 target=self._read_process_output,
                 args=(process,),
@@ -364,6 +444,7 @@ class HostControlAPI:
 
 def main():
     api = HostControlAPI()
+    atexit.register(api.job.close)
     webview.create_window(
         "ESPDevLink Host Control Center",
         str(HTML),
