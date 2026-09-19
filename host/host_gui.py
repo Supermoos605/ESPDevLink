@@ -787,12 +787,6 @@ class ESPDevLinkGUI(tk.Tk):
         host_online = bool(host.get("online"))
         stream_state = str(host.get("stream") or stream.get("state") or "stopped")
         network_host = str(network.get("host") or "—")
-        mdns = str(network.get("mdns_name") or "—")
-        mode = str(os.environ.get("ESPLINK_CONNECTION_MODE", "AUTOMATIC")).upper()
-        if mode not in {"AUTOMATIC", "REMOTE", "FORCE_REMOTE"}:
-            mode = "AUTOMATIC"
-        self.connection_mode.set(mode)
-        self._sync_connection_mode_status()
 
         self._set_status_card(self.host_card, "Running" if host_online else "Offline", GREEN if host_online else RED)
         self._set_status_card(self.esp_card, "Connected" if network_host not in {"—", ""} else "Unknown", GREEN if network_host not in {"—", ""} else MUTED)
@@ -812,10 +806,8 @@ class ESPDevLinkGUI(tk.Tk):
         self.last_update.configure(text="Updated just now")
 
         values = {
-            "mode": mode,
             "computer": str(host.get("name") or "—"),
             "ip": network_host,
-            "mdns": mdns,
             "game": str(host.get("game") or "Desktop"),
             "uptime": self._format_seconds(health.get("uptime_seconds")),
         }
@@ -971,25 +963,11 @@ class ESPDevLinkGUI(tk.Tk):
             pass
         ip = ", ".join(addresses) if addresses else "—"
         try:
-            from .config import ESP32_URL
-            esp32_url = ESP32_URL
-        except ImportError:
-            esp32_url = ""
-        mode = self.connection_mode.get().upper()
         self.network_vars["hostname"].set(hostname)
         self.network_vars["ip"].set(ip)
-        self.network_vars["mdns"].set(f"{hostname}.local")
-        self.network_vars["esp32"].set(esp32_url)
-        self.network_vars["mode"].set(mode)
 
     def open_esp32(self) -> None:
-        try:
-            from .config import ESP32_URL
-            url = ESP32_URL
-        except ImportError:
-            url = ""
-        webbrowser.open(url)
-        self._log(f"Opened ESP32 interface: {url}")
+        self._log("ESP32 remote interface is discovered through the remote rendezvous service.")
 
     def _write_schedule_output(self, text: str) -> None:
         self.schedule_output.configure(state="normal")
