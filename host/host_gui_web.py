@@ -76,6 +76,11 @@ class HostControlAPI:
         try:
             env = os.environ.copy()
             env["PYTHONUNBUFFERED"] = "1"
+            # The Control Center is the normal Windows entry point, so keep
+            # the streaming features enabled unless the user explicitly
+            # disabled them in the environment.
+            env.setdefault("ESPLINK_INPUT_ENABLED", "1")
+            env.setdefault("ESPLINK_AUDIO_ENABLED", "1")
             process = subprocess.Popen(
                 args,
                 cwd=ROOT,
