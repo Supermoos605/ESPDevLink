@@ -35,6 +35,7 @@ Preferences wifiPreferences;
 String WIFI_SSID;
 String WIFI_PASSWORD;
 String activeWiFiSSID;
+String activeWiFiPassword;
 bool hasSavedWiFiCredentials = false;
 
 // Cross-network rendezvous settings.
@@ -74,6 +75,10 @@ String wifiLastFailure = "";
 uint8_t wifiAttempts = 0;
 bool natAPStarted = false;
 bool natEnabled = false;
+bool natReconnectPending = false;
+unsigned long natReconnectStartedAt = 0;
+unsigned long lastNatReconnectAttempt = 0;
+constexpr unsigned long NAT_RECONNECT_INTERVAL_MS = 5000;
 String activeSession = "";
 String pcSession = "";
 unsigned long lastPCHeartbeat = 0;
@@ -291,6 +296,8 @@ bool tryWiFiNetwork(const char* ssid, const char* password, const char* label) {
 
     if (WiFi.status() == WL_CONNECTED) {
         activeWiFiSSID = ssid;
+        activeWiFiPassword = password;
+        natReconnectPending = false;
         wifiMode = "station";
         Serial.print("Wi-Fi connected using ");
         Serial.print(label);
@@ -683,8 +690,38 @@ void loop() {
         WiFi.AP.enableNAPT(false);
         natEnabled = false;
         if (natAPStarted) wifiMode = "station_ap_no_uplink";
+        natReconnectPending = true;
         Serial.println("STA uplink lost; NAPT disabled.");
     }
+
+    if (natAPStarted && natReconnectPending && activeWiFiSSID.length() > 0 &&
+        millis() - lastNatReconnectAttempt >= NAT_RECONNECT_INTERVAL_MS) {
+        lastNatReconnectAttempt = millis();
+        Serial.print("NAT uplink reconnect: trying ");
+        Serial.println(activeWiFiSSID);
+        WiFi.begin(activeWiFiSSID.c_str(), activeWiFiPassword.c_str());
+        natReconnectStartedAt = millis();
+        natReconnectPending = false;
+    }
+
+    if (natAPStarted && WiFi.status() == WL_CONNECTED && !natEnabled) {
+        if (WiFi.AP.enableNAPT(true)) {
+            natEnabled = true;
+            wifiMode = "station_ap_nat";
+            wifiLastFailure = "";
+            Serial.println("NAT uplink restored; NAPT re-enabled.");
+        }
+    }
+
+    if (natAPStarted && WiFi.status() != WL_CONNECTED &&
+        natReconnectStartedAt != 0 && millis() - natReconnectStartedAt >= WIFI_TIMEOUT_MS) {
+        natReconnectStartedAt = 0;
+        natReconnectPending = true;
+        wifiLastFailure = wifiFailureReason();
+        Serial.print("NAT uplink reconnect timed out: ");
+        Serial.println(wifiLastFailure);
+    }
+
     if (WiFi.status() == WL_CONNECTED && strlen(KEYVAL_KEY) >= 10 && (remoteCheckedAt == 0 || millis() - remoteCheckedAt >= REMOTE_LOOKUP_INTERVAL_MS)) {
         lookupRemoteURL();
         remoteCheckedAt = millis();
