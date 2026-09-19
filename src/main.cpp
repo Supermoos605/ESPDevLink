@@ -29,11 +29,13 @@ const char* FALLBACK_WIFI_SSID = ESPDEVLINK_FALLBACK_WIFI_SSID;
 const char* FALLBACK_WIFI_PASSWORD = ESPDEVLINK_FALLBACK_WIFI_PASSWORD;
 const char* ACCESS_CODE = ESPDEVLINK_ACCESS_CODE;
 
-// Runtime Wi-Fi credentials are stored locally in ESP32 NVS.
+// Runtime Wi-Fi credentials entered through the fallback setup page are
+// stored separately from the compile-time primary and secondary networks.
 Preferences wifiPreferences;
 String WIFI_SSID;
 String WIFI_PASSWORD;
 String activeWiFiSSID;
+bool hasSavedWiFiCredentials = false;
 
 // Cross-network rendezvous settings.
 const char* KEYVAL_BASE_URL = "https://api.keyval.org";
@@ -75,11 +77,17 @@ bool pcOnline() { return pcKnown && millis() - lastPCHeartbeat <= PC_TIMEOUT_MS;
 
 void loadWiFiCredentials() {
     wifiPreferences.begin("wifi", false);
-    WIFI_SSID = wifiPreferences.getString("ssid", DEFAULT_WIFI_SSID);
-    WIFI_PASSWORD = wifiPreferences.getString("password", DEFAULT_WIFI_PASSWORD);
-    activeWiFiSSID = WIFI_SSID;
-    Serial.print("Configured Wi-Fi SSID: ");
-    Serial.println(WIFI_SSID.length() ? WIFI_SSID : "(none)");
+    hasSavedWiFiCredentials = wifiPreferences.isKey("ssid");
+    if (hasSavedWiFiCredentials) {
+        WIFI_SSID = wifiPreferences.getString("ssid", "");
+        WIFI_PASSWORD = wifiPreferences.getString("password", "");
+    } else {
+        WIFI_SSID = "";
+        WIFI_PASSWORD = "";
+    }
+    activeWiFiSSID = "";
+    Serial.print("Saved Wi-Fi SSID: ");
+    Serial.println(hasSavedWiFiCredentials && WIFI_SSID.length() ? WIFI_SSID : "(none)");
 }
 
 void saveWiFiCredentials(const String& ssid, const String& password) {
@@ -88,6 +96,7 @@ void saveWiFiCredentials(const String& ssid, const String& password) {
     WIFI_SSID = ssid;
     WIFI_PASSWORD = password;
     activeWiFiSSID = ssid;
+    hasSavedWiFiCredentials = true;
 }
 
 bool lookupRemoteURL() {
@@ -154,7 +163,13 @@ void sendError(AsyncWebServerRequest* request, int code, const char* message) {
 }
 
 bool configuredWiFi() {
-    return WIFI_SSID.length() > 0 && WIFI_SSID != "YOUR_WIFI_NAME";
+    return strlen(DEFAULT_WIFI_SSID) > 0 && strcmp(DEFAULT_WIFI_SSID, "YOUR_WIFI_NAME") != 0;
+}
+
+bool configuredSavedWiFi() {
+    return hasSavedWiFiCredentials &&
+           WIFI_SSID.length() > 0 &&
+           WIFI_SSID != "YOUR_WIFI_NAME";
 }
 
 bool configuredFallbackWiFi() {
@@ -243,24 +258,38 @@ void connectWiFi(bool forceFallback = false) {
         startFallbackAP();
         return;
     }
-    if (!configuredWiFi()) {
+
+    // Credentials entered on the fallback setup page are tried first, but
+    // never replace the compile-time primary or secondary configuration.
+    if (configuredSavedWiFi()) {
+        Serial.println("Trying saved Wi-Fi credentials first...");
+        if (tryWiFiNetwork(WIFI_SSID.c_str(), WIFI_PASSWORD.c_str(), "saved")) {
+            wifiLastFailure = "";
+            return;
+        }
+    }
+
+    if (configuredWiFi()) {
+        Serial.println("Trying primary Wi-Fi network...");
+        if (tryWiFiNetwork(DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASSWORD, "primary")) {
+            wifiLastFailure = "";
+            return;
+        }
+    } else {
         Serial.println("Primary Wi-Fi credentials are not configured.");
-    } else if (tryWiFiNetwork(WIFI_SSID.c_str(), WIFI_PASSWORD.c_str(), "primary")) {
-        wifiLastFailure = "";
-        return;
     }
 
     if (configuredFallbackWiFi()) {
-        Serial.println("Primary Wi-Fi unavailable; trying fallback network...");
-        if (tryWiFiNetwork(FALLBACK_WIFI_SSID, FALLBACK_WIFI_PASSWORD, "fallback")) {
-            wifiLastFailure = "Primary network unavailable; connected to fallback network";
+        Serial.println("Primary Wi-Fi unavailable; trying secondary network...");
+        if (tryWiFiNetwork(FALLBACK_WIFI_SSID, FALLBACK_WIFI_PASSWORD, "secondary")) {
+            wifiLastFailure = "Primary network unavailable; connected to secondary network";
             return;
         }
-        wifiLastFailure = "Primary and fallback Wi-Fi networks unavailable";
     } else {
-        Serial.println("No fallback Wi-Fi network is configured.");
+        Serial.println("No secondary Wi-Fi network is configured.");
     }
 
+    wifiLastFailure = "Saved, primary, and secondary Wi-Fi networks unavailable";
     Serial.println("No configured Wi-Fi network could be reached.");
     startFallbackAP();
 }
