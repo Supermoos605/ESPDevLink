@@ -219,40 +219,31 @@ class HostControlAPI:
             self._append_output(message)
             return message
 
-    def stop_all(self):
-        """Stop every host/tunnel process started by this Control Center."""
-        stopped = 0
-        for process in list(self.processes):
-            if process.poll() is None:
-                try:
-                    if os.name == "nt":
-                        subprocess.run(
-                            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                            capture_output=True,
-                            text=True,
-                            timeout=10,
-                        )
-                    else:
-                        process.terminate()
-                except Exception:
-                    try:
-                        process.terminate()
-                    except Exception:
-                        pass
-                stopped += 1
-
-        # The Job Object is the final cleanup layer for descendants that
-        # may not be directly represented in self.processes.
-        self.job.close()
-        self._append_output(f"[Control Center] Stopped {stopped} tracked process(es).")
-        return stopped
-
     def action(self, name):
         py = self._python()
         if name == "start":
             return self._start_host_stack()
         if name == "stop":
-            stopped = self.stop_all()
+            stopped = 0
+            for process in list(self.processes):
+                if process.poll() is None:
+                    try:
+                        if os.name == "nt":
+                            subprocess.run(
+                                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                                capture_output=True,
+                                text=True,
+                                timeout=10,
+                            )
+                        else:
+                            process.terminate()
+                    except Exception:
+                        try:
+                            process.terminate()
+                        except Exception:
+                            pass
+                    stopped += 1
+            self._append_output(f"[Control Center] Stopped {stopped} tracked process(es).")
             return f"Stopped {stopped} tracked process(es)."
         if name == "heartbeat":
             return self._start([py, "-u", "-m", "host.network.heartbeat"], "Network heartbeat")
@@ -453,19 +444,8 @@ class HostControlAPI:
 
 def main():
     api = HostControlAPI()
-
-    # Start the complete host stack as soon as the Control Center launches.
-    # The intended workflow is now: launch ESPDevLink, then leave it alone.
-    api._start_host_stack()
-
-    def cleanup():
-        api.stop_all()
-
-    # Handle normal window closure explicitly instead of relying only on
-    # Python's atexit hook.
-    atexit.register(cleanup)
-
-    window = webview.create_window(
+    atexit.register(api.job.close)
+    webview.create_window(
         "ESPDevLink Host Control Center",
         str(HTML),
         width=1200,
@@ -475,7 +455,6 @@ def main():
         js_api=api,
         background_color="#080a0f",
     )
-    window.events.closed += cleanup
     webview.start(gui="edgechromium", icon=str(ICON))
 
 
