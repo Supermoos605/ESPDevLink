@@ -69,6 +69,12 @@ void expirePending() {
 void answerLocal(const uint8_t* query, size_t length, const IPAddress& clientIP, uint16_t clientPort) {
     if (length < 12 || length > DNS_MAX_PACKET) return;
 
+    size_t offset = 12;
+    String name = readQName(query, length, offset);
+    if (!isESPDevLinkName(name) || offset + 4 > length || length + 16 > DNS_MAX_PACKET) {
+        return;
+    }
+
     uint8_t response[DNS_MAX_PACKET];
     memcpy(response, query, length);
 
@@ -85,26 +91,7 @@ void answerLocal(const uint8_t* query, size_t length, const IPAddress& clientIP,
     response[7] = 1;
     response[8] = response[9] = response[10] = response[11] = 0;
 
-    size_t offset = 12;
-    String name = readQName(query, length, offset);
-    if (!isESPDevLinkName(name) || offset + 4 > length || length + 16 > DNS_MAX_PACKET) {
-        return;
-    }
-
     // Keep the original question section and append an A record.
-    memcpy(response, query, length);
-
-    flags = (static_cast<uint16_t>(response[2]) << 8) | response[3];
-    flags |= 0x8000;
-    flags |= 0x0400;
-    flags |= 0x0080;
-    response[2] = static_cast<uint8_t>(flags >> 8);
-    response[3] = static_cast<uint8_t>(flags & 0xFF);
-
-    response[6] = 0;
-    response[7] = 1;
-    response[8] = response[9] = response[10] = response[11] = 0;
-
     size_t out = length;
     response[out++] = 0xC0;
     response[out++] = 0x0C; // pointer to QNAME
@@ -120,7 +107,9 @@ void answerLocal(const uint8_t* query, size_t length, const IPAddress& clientIP,
     response[out++] = 0x04; // IPv4 length
 
     IPAddress ip(192, 168, 4, 1);
-    for (uint8_t octet : ip) response[out++] = octet;
+    for (uint8_t i = 0; i < 4; ++i) {
+        response[out++] = ip[i];
+    }
 
     dnsUDP.beginPacket(clientIP, clientPort);
     dnsUDP.write(response, out);
