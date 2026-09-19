@@ -535,6 +535,11 @@ void setup() {
         doc["wifi_attempts"] = wifiAttempts;
         doc["fallback_ip"] = WiFi.softAPIP().toString();
         doc["pc_online"] = pcOnline();
+        doc["pc_name"] = pcName;
+        doc["pc_ip"] = pcIP;
+        doc["pc_game"] = currentGame;
+        doc["pc_stream"] = streamState;
+        doc["pc_connection_mode"] = pcConnectionMode;
         doc["remote_online"] = remoteOnline;
         doc["remote_url"] = remoteURL;
         String output;
