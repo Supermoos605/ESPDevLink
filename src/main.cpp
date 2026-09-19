@@ -8,7 +8,6 @@
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
-#include <esp_netif.h>
 
 #include "../include/espdevlink_secrets.h"
 
@@ -243,8 +242,7 @@ bool startNATAP() {
     Serial.println(WiFi.localIP());
     // Arduino-ESP32 2.x does not expose the newer WiFi.AP NAPT wrapper.
     // Use the underlying ESP-NETIF AP handle instead.
-    esp_netif_t* apNetif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
-    if (apNetif == nullptr || esp_netif_napt_enable(apNetif) != ESP_OK) {
+    if (!WiFi.AP.enableNAPT(true)) {
         Serial.println("NAPT enable failed.");
         natEnabled = false;
         wifiMode = "station_ap";
@@ -672,16 +670,14 @@ void setup() {
 
 void loop() {
     if (WiFi.status() == WL_CONNECTED && natAPStarted && !natEnabled) {
-        esp_netif_t* apNetif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
-        natEnabled = apNetif != nullptr && esp_netif_napt_enable(apNetif) == ESP_OK;
+        natEnabled = WiFi.AP.enableNAPT(true);
         if (natEnabled) {
             wifiMode = "station_ap_nat";
             Serial.println("NAPT re-enabled after STA recovery.");
         }
     }
     if (WiFi.status() != WL_CONNECTED && natEnabled) {
-        esp_netif_t* apNetif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
-        if (apNetif != nullptr) esp_netif_napt_disable(apNetif);
+        WiFi.AP.enableNAPT(false);
         natEnabled = false;
         if (natAPStarted) wifiMode = "station_ap_no_uplink";
         Serial.println("STA uplink lost; NAPT disabled.");
