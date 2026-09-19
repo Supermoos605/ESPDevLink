@@ -570,8 +570,7 @@ class ESPDevLinkGUI(tk.Tk):
         panel = self._panel(page, "HOST NETWORK")
         panel.pack(fill="x", padx=26)
         self.network_vars = {}
-        for key, label in (("hostname", "Computer Name"), ("ip", "LAN IP"), ("mdns", "mDNS"),
-                           ("esp32", "ESP32 Target"), ("mode", "Connection Mode")):
+        for key, label in (("hostname", "Computer Name"), ("ip", "LAN IP")):
             self.network_vars[key] = self._info_row(panel, label, "—")
 
         actions = tk.Frame(panel, bg=CARD)
