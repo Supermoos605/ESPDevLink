@@ -40,7 +40,9 @@ class HostHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
-        if origin and origin.rstrip("/") in CORS_ORIGINS:
+        if "*" in CORS_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", "*")
+        elif origin and origin.rstrip("/") in CORS_ORIGINS:
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-ESPLink-Session, X-ESPLink-Host-Session, X-ESPLink-Peer")
