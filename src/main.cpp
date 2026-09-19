@@ -76,17 +76,11 @@ bool configureNATAPAddress() {
 constexpr unsigned long WIFI_TIMEOUT_MS = 15000;
 constexpr uint8_t BOOT_BUTTON_PIN = 0; // Built-in BOOT button on ESP32 DevKit V1
 constexpr unsigned long FALLBACK_HOLD_MS = 3000;
-constexpr unsigned long PC_TIMEOUT_MS = 5000;
 constexpr size_t MAX_HEARTBEAT_BYTES = 2048;
 constexpr size_t MAX_WIFI_SSID_BYTES = 64;
 constexpr size_t MAX_WIFI_PASSWORD_BYTES = 64;
 
 AsyncWebServer server(80);
-String pcName = "Gaming PC";
-String pcIP = "";
-String currentGame = "";
-String streamState = "Ready";
-String pcConnectionMode = "AUTOMATIC";
 String wifiMode = "disconnected";
 String wifiLastFailure = "";
 uint8_t wifiAttempts = 0;
@@ -99,15 +93,10 @@ unsigned long lastNatAPCheck = 0;
 constexpr unsigned long NAT_RECONNECT_INTERVAL_MS = 5000;
 constexpr unsigned long NAT_AP_CHECK_INTERVAL_MS = 5000;
 String activeSession = "";
-String pcSession = "";
-unsigned long lastPCHeartbeat = 0;
-bool pcKnown = false;
 String remoteURL = "";
 bool remoteOnline = false;
 unsigned long remoteCheckedAt = 0;
 constexpr unsigned long REMOTE_LOOKUP_INTERVAL_MS = 5000;
-
-bool pcOnline() { return remoteOnline; }
 
 void loadWiFiCredentials() {
     wifiPreferences.begin("wifi", false);
