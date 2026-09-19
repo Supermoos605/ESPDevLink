@@ -46,6 +46,15 @@ const char* MDNS_NAME = "steamlink";
 const char* FALLBACK_AP_NAME = "ESPLink-Setup";
 const char* FALLBACK_AP_PASSWORD = "esp-link-setup";
 
+// AP+STA NAT test network. This is intentionally separate from the existing
+// fallback setup AP while the NAT router experiment is being validated.
+const char* NAT_AP_NAME = "ESPDevLink-NAT-Test";
+const char* NAT_AP_PASSWORD = "espdevlink";
+
+constexpr IPAddress NAT_AP_IP(192, 168, 4, 1);
+constexpr IPAddress NAT_AP_SUBNET(255, 255, 255, 0);
+constexpr IPAddress NAT_AP_LEASE_START(192, 168, 4, 2);
+
 constexpr unsigned long WIFI_TIMEOUT_MS = 15000;
 constexpr uint8_t BOOT_BUTTON_PIN = 0; // Built-in BOOT button on ESP32 DevKit V1
 constexpr unsigned long FALLBACK_HOLD_MS = 3000;
@@ -63,6 +72,8 @@ String pcConnectionMode = "AUTOMATIC";
 String wifiMode = "disconnected";
 String wifiLastFailure = "";
 uint8_t wifiAttempts = 0;
+bool natAPStarted = false;
+bool natEnabled = false;
 String activeSession = "";
 String pcSession = "";
 unsigned long lastPCHeartbeat = 0;
@@ -187,6 +198,69 @@ String wifiFailureReason() {
     }
 }
 
+// Start the ESPDevLink AP alongside the already-connected STA interface and
+// enable ESP32 NAPT so AP clients can use the STA network as their uplink.
+// Arduino-ESP32 3.x exposes this through WiFi.AP.enableNAPT().
+bool startNATAP() {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("NAT AP not started: STA is not connected.");
+        return false;
+    }
+
+    WiFi.mode(WIFI_AP_STA);
+    delay(100);
+
+    // The ESP32 has one 2.4 GHz radio, so keep the SoftAP on the STA's
+    // currently selected channel.
+    const uint8_t apChannel = WiFi.channel();
+    const IPAddress upstreamDNS = WiFi.dnsIP(0);
+
+    if (!WiFi.softAPConfig(
+            NAT_AP_IP,
+            NAT_AP_IP,
+            NAT_AP_SUBNET,
+            NAT_AP_LEASE_START,
+            upstreamDNS)) {
+        Serial.println("NAT AP IP/DHCP configuration failed.");
+        return false;
+    }
+
+    if (!WiFi.softAP(NAT_AP_NAME, NAT_AP_PASSWORD, apChannel, 0, 4)) {
+        Serial.println("NAT AP startup failed.");
+        return false;
+    }
+
+    natAPStarted = true;
+    Serial.println();
+    Serial.println("ESPDevLink NAT AP started.");
+    Serial.print("  SSID: ");
+    Serial.println(NAT_AP_NAME);
+    Serial.print("  Password: ");
+    Serial.println(NAT_AP_PASSWORD);
+    Serial.print("  AP address: http://");
+    Serial.println(WiFi.softAPIP());
+    Serial.print("  AP channel: ");
+    Serial.println(apChannel);
+    Serial.print("  Upstream STA address: ");
+    Serial.println(WiFi.localIP());
+    Serial.print("  Upstream DNS: ");
+    Serial.println(upstreamDNS);
+
+    // The current Arduino-ESP32 3.x network API exposes NAPT directly on
+    // the AP interface. The STA remains the default/upstream interface.
+    if (!WiFi.AP.enableNAPT(true)) {
+        Serial.println("NAPT enable failed.");
+        natEnabled = false;
+        wifiMode = "station_ap";
+        return false;
+    }
+
+    natEnabled = true;
+    wifiMode = "station_ap_nat";
+    Serial.println("NAPT enabled: AP clients now have the STA as their Internet uplink.");
+    return true;
+}
+
 bool tryWiFiNetwork(const char* ssid, const char* password, const char* label) {
     if (ssid == nullptr || strlen(ssid) == 0) return false;
 
@@ -216,6 +290,9 @@ bool tryWiFiNetwork(const char* ssid, const char* password, const char* label) {
         Serial.print(label);
         Serial.print(" network. IP: ");
         Serial.println(WiFi.localIP());
+
+        // This branch is specifically for validating the AP+STA+NAPT design.
+        startNATAP();
         return true;
     }
 
@@ -534,6 +611,11 @@ void setup() {
         doc["wifi_failure"] = wifiLastFailure;
         doc["wifi_attempts"] = wifiAttempts;
         doc["fallback_ip"] = WiFi.softAPIP().toString();
+        doc["nat_ap_enabled"] = natAPStarted;
+        doc["nat_enabled"] = natEnabled;
+        doc["nat_ap_ssid"] = NAT_AP_NAME;
+        doc["nat_ap_clients"] = WiFi.softAPgetStationNum();
+        doc["nat_ap_ip"] = WiFi.softAPIP().toString();
         doc["pc_online"] = pcOnline();
         doc["pc_name"] = pcName;
         doc["pc_ip"] = pcIP;
@@ -593,7 +675,19 @@ void setup() {
 }
 
 void loop() {
-    if (WiFi.status() == WL_CONNECTED && wifiMode != "station") wifiMode = "station";
+    if (WiFi.status() == WL_CONNECTED && natAPStarted && !natEnabled) {
+        natEnabled = WiFi.AP.enableNAPT(true);
+        if (natEnabled) {
+            wifiMode = "station_ap_nat";
+            Serial.println("NAPT re-enabled after STA recovery.");
+        }
+    }
+    if (WiFi.status() != WL_CONNECTED && natEnabled) {
+        WiFi.AP.enableNAPT(false);
+        natEnabled = false;
+        if (natAPStarted) wifiMode = "station_ap_no_uplink";
+        Serial.println("STA uplink lost; NAPT disabled.");
+    }
     if (WiFi.status() == WL_CONNECTED && strlen(KEYVAL_KEY) >= 10 && (remoteCheckedAt == 0 || millis() - remoteCheckedAt >= REMOTE_LOOKUP_INTERVAL_MS)) {
         lookupRemoteURL();
         remoteCheckedAt = millis();
