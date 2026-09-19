@@ -68,7 +68,7 @@ Configuration is centralized in `host/config.py` and can be overridden with envi
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `ESPLINK_ESP32` | ESP32 or simulator URL | `http://steamlink.local` |
+| `ESPLINK_ESP32` | ESP32 or simulator URL | `the configured ESP32 LAN address` |
 | `ESPLINK_COMPUTER_NAME` | Name reported by the host | Windows computer name |
 | `ESPLINK_HEARTBEAT` | Heartbeat interval in seconds | `2` |
 | `ESPLINK_ALLOW_CONNECTIONS` | Allow incoming connections | `1` |
