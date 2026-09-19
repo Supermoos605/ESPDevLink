@@ -11,7 +11,6 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 import os
 import subprocess
-import socket
 
 from .api import HostAPI
 from .config import (
@@ -42,44 +41,13 @@ CONTENT_TYPES = {
 
 
 class ESP32Heartbeat:
-    DISCOVERY_PORT = 4210
-    DISCOVERY_MESSAGE = b"ESPDEVLINK_DISCOVER"
-
     def __init__(self):
         self.session = ""
-        self.base_url = ESP32_URL
         self.stop_event = threading.Event()
         self.thread = threading.Thread(target=self.run, name="esp32-heartbeat", daemon=True)
 
-    def discover(self):
-        """Try LAN UDP discovery before falling back to mDNS."""
-        if not ESP32_URL.startswith("http://steamlink.local"):
-            return
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            sock.settimeout(0.75)
-            sock.sendto(self.DISCOVERY_MESSAGE, ("255.255.255.255", self.DISCOVERY_PORT))
-            while True:
-                payload, _address = sock.recvfrom(128)
-                text = payload.decode("utf-8", errors="ignore").strip()
-                if not text.startswith("ESPDEVLINK "):
-                    continue
-                ip = text.split(" ", 1)[1].strip()
-                parts = ip.split(".")
-                if len(parts) != 4 or not all(part.isdigit() and 0 <= int(part) <= 255 for part in parts):
-                    continue
-                self.base_url = f"http://{ip}"
-                print(f"[ESP32] LAN discovery found ESP32 at {self.base_url}")
-                return
-        except (OSError, TimeoutError):
-            pass
-        finally:
-            sock.close()
-        print(f"[ESP32] LAN discovery unavailable; using {ESP32_URL}")
-
     def start(self):
-        print(f"[ESP32] Target: {self.base_url}")
+        print(f"[ESP32] Target: {ESP32_URL}")
         self.thread.start()
 
     def stop(self):
@@ -89,7 +57,7 @@ class ESP32Heartbeat:
     def request_json(self, path, payload):
         data = json.dumps(payload).encode("utf-8")
         request = Request(
-            f"{self.base_url}{path}",
+            f"{ESP32_URL}{path}",
             data=data,
             headers={"Content-Type": "application/json"},
             method="POST",
@@ -115,7 +83,7 @@ class ESP32Heartbeat:
             "connection_mode": os.environ.get("ESPLINK_CONNECTION_MODE", "AUTOMATIC"),
         }).encode("utf-8")
         request = Request(
-            f"{self.base_url}/api/pc/heartbeat",
+            f"{ESP32_URL}/api/pc/heartbeat",
             data=data,
             headers={
                 "Content-Type": "application/json",
@@ -373,7 +341,6 @@ class HostHandler(BaseHTTPRequestHandler):
 def main():
     server = ThreadingHTTPServer((HOST, PORT), HostHandler)
     heartbeat = ESP32Heartbeat()
-    heartbeat.discover()
     heartbeat.start()
 
     def health_watchdog():
