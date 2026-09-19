@@ -227,7 +227,6 @@ class ESPDevLinkGUI(tk.Tk):
         self._build_dashboard_page()
         self._build_operations_page()
         self._build_diagnostics_page()
-        self._build_connection_page()
         self._build_network_page()
         self._build_scheduler_page()
         self._build_streaming_page()
@@ -318,7 +317,6 @@ class ESPDevLinkGUI(tk.Tk):
             ("Dashboard", "⌂"),
             ("Operations", "⚡"),
             ("Diagnostics", "◉"),
-            ("Connection", "⇄"),
             ("Network", "⌁"),
             ("Scheduler", "◷"),
             ("Streaming", "▶"),
@@ -419,10 +417,7 @@ class ESPDevLinkGUI(tk.Tk):
         left.pack(side="left", fill="both", expand=True, padx=(6, 6))
         self.connection_vars = {}
         for key, label in (
-            ("mode", "Connection Mode"),
             ("computer", "Computer"),
-            ("ip", "Host IP"),
-            ("mdns", "mDNS"),
             ("game", "Game"),
             ("uptime", "Host Uptime"),
         ):
@@ -484,7 +479,7 @@ class ESPDevLinkGUI(tk.Tk):
             ("■  Stop Current Process", self.stop_host),
             ("♥  Start Network Heartbeat", self.start_heartbeat),
             ("▣  Start ESPLink Simulator", self.start_simulator),
-            ("↗  Open Local Web Interface", self.open_web),
+            ("↗  Open Web Interface", self.open_web),
         ):
             self._steam_button(host_panel, text=text, command=command, style="Action.TButton").pack(
                 fill="x", pady=5
@@ -562,62 +557,6 @@ class ESPDevLinkGUI(tk.Tk):
         self.diag_text.pack(fill="both", expand=True)
         self.diag_text.insert("end", "Live health results will appear here.\n")
         self.diag_text.configure(state="disabled")
-
-    def _build_connection_page(self) -> None:
-        page = tk.Frame(self.content, bg=BG)
-        self.pages["Connection"] = page
-
-        tk.Label(
-            page, text="Connection", bg=BG, fg=TEXT, font=("Inter", 22, "bold")
-        ).pack(anchor="w", padx=26, pady=(24, 4))
-        tk.Label(
-            page,
-            text="Choose how the browser client should route its next connection.",
-            bg=BG,
-            fg=MUTED,
-            font=("Inter", 10),
-        ).pack(anchor="w", padx=26, pady=(0, 18))
-
-        panel = self._panel(page, "CONNECTION MODE")
-        panel.pack(fill="x", padx=26)
-
-        tk.Label(
-            panel,
-            text="The selected mode is passed to the web interface as a connection-mode parameter.\n"
-                 "Changing the host process mode affects its heartbeat display; it does not change ESP32 firmware settings.",
-            bg=CARD, fg=MUTED, justify="left", font=("Inter", 9),
-        ).pack(anchor="w", padx=16, pady=(0, 14))
-
-        modes = (
-            ("AUTOMATIC", "Try the normal connection routing."),
-            ("REMOTE", "Request the remote Quick Tunnel route."),
-            ("FORCE_REMOTE", "Always request the remote route for testing."),
-        )
-        for mode, description in modes:
-            row = tk.Frame(panel, bg=CARD)
-            row.pack(fill="x", padx=12, pady=4)
-            tk.Radiobutton(
-                row, text=mode, variable=self.connection_mode, value=mode,
-                bg=CARD, fg=TEXT, activebackground=CARD, activeforeground=TEXT,
-                selectcolor=SIDEBAR, font=("Inter", 10, "bold"),
-            ).pack(side="left")
-            tk.Label(row, text=description, bg=CARD, fg=MUTED, font=("Inter", 9)).pack(
-                side="left", padx=12
-            )
-
-        actions = tk.Frame(panel, bg=CARD)
-        actions.pack(fill="x", padx=12, pady=(14, 12))
-        self._steam_button(actions, text="Open Selected Mode", style="Accent.TButton", command=self.open_selected_mode).pack(side="left")
-        self._steam_button(actions, text="Restart Host With Mode", style="Action.TButton", command=self.restart_host_with_mode).pack(side="left", padx=8)
-
-        status = self._panel(page, "CURRENT HOST SETTING")
-        status.pack(fill="x", padx=26, pady=18)
-        self.connection_mode_status = tk.StringVar(value="AUTOMATIC")
-        tk.Label(status, textvariable=self.connection_mode_status, bg=CARD, fg=TEXT,
-                 font=("Inter", 15, "bold")).pack(anchor="w", padx=16, pady=(2, 4))
-        tk.Label(status, text="This is the mode that will be inherited by newly started host processes.",
-                 bg=CARD, fg=MUTED, font=("Inter", 9)).pack(anchor="w", padx=16, pady=(0, 14))
-        self._sync_connection_mode_status()
 
     def _build_network_page(self) -> None:
         page = tk.Frame(self.content, bg=BG)
@@ -1019,51 +958,6 @@ class ESPDevLinkGUI(tk.Tk):
             self.process.kill()
         self.process = None
         self.footer_status.configure(text="●  Host operation stopped", fg=MUTED)
-
-    def _sync_connection_mode_status(self) -> None:
-        mode = self.connection_mode.get().upper()
-        self.connection_mode_status.set(mode)
-
-    def open_selected_mode(self) -> None:
-        mode = self.connection_mode.get().upper()
-        if mode not in {"AUTOMATIC", "REMOTE", "FORCE_REMOTE"}:
-            mode = "AUTOMATIC"
-        self.connection_mode.set(mode)
-        self._sync_connection_mode_status()
-        url = HOST_URL
-        if mode != "AUTOMATIC":
-            url += "?mode=" + mode
-        webbrowser.open(url)
-        self._log(f"Opened web interface with mode: {mode}")
-
-    def restart_host_with_mode(self) -> None:
-        mode = self.connection_mode.get().upper()
-        if mode not in {"AUTOMATIC", "REMOTE", "FORCE_REMOTE"}:
-            mode = "AUTOMATIC"
-            self.connection_mode.set(mode)
-        if self.process and self.process.poll() is None:
-            self.stop_host()
-        env = os.environ.copy()
-        env["ESPLINK_CONNECTION_MODE"] = mode
-        self._log(f"Starting host with connection mode: {mode}")
-        try:
-            self.process = subprocess.Popen(
-                [PYTHON, "-m", "host.host_server"],
-                cwd=REPO_ROOT,
-                env=env,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-            )
-            threading.Thread(target=self._read_process, args=(self.process,), daemon=True).start()
-            self.footer_status.configure(text=f"●  Host mode: {mode}", fg=YELLOW)
-        except OSError as exc:
-            self._log(f"ERROR: {exc}")
-            messagebox.showerror("ESPDevLink", str(exc))
 
     def refresh_network_page(self) -> None:
         hostname = socket.gethostname()
