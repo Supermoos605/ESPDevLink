@@ -75,6 +75,14 @@ class DesktopAudioTrack(MediaStreamTrack if MediaStreamTrack is not None else ob
                         array = np.repeat(array, 2, axis=1)
                     elif array.shape[1] > 2:
                         array = array[:, :2]
+                    # SoundCard provides normalized float samples, while the
+                    # aiortc/PyAV Opus path is most reliably fed with signed
+                    # 16-bit PCM. Convert here so the encoder receives an
+                    # explicit, interleaved stereo s16 frame instead of a
+                    # float-planar frame that can negotiate successfully but
+                    # produce silence in the browser.
+                    pcm = np.clip(array, -1.0, 1.0)
+                    pcm = (pcm * 32767.0).astype(np.int16)
                     peak = float(np.max(np.abs(array))) if array.size else 0.0
                     rms = float(np.sqrt(np.mean(np.square(array)))) if array.size else 0.0
                     with self._stats_lock:
@@ -84,8 +92,10 @@ class DesktopAudioTrack(MediaStreamTrack if MediaStreamTrack is not None else ob
                             self._non_silent_frames += 1
                         self._peak = peak
                         self._rms = rms
-                    # PyAV expects planar audio arrays as (channels, samples).
-                    frame = AudioFrame.from_ndarray(array.T, format="fltp", layout="stereo")
+                    # PyAV expects s16 stereo input as (channels, samples)
+                    # for a planar AudioFrame; aiortc handles the RTP/Opus
+                    # encoding from this canonical PCM representation.
+                    frame = AudioFrame.from_ndarray(pcm.T, format="s16", layout="stereo")
                     frame.sample_rate = self.sample_rate
                     frame.pts = self._pts
                     frame.time_base = Fraction(1, self.sample_rate)
