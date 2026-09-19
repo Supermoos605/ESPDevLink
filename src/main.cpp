@@ -472,9 +472,58 @@ void setup() {
     connectWiFi(forceFallback);
     startMDNS();
 
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (wifiMode == "fallback_ap") {
+            request->send(LittleFS, "/recovery.html", "text/html");
+            return;
+        }
+        request->send(LittleFS, "/index.html", "text/html");
+    });
+
     server.serveStatic("/", LittleFS, "/")
         .setDefaultFile("index.html")
         .setCacheControl("no-cache");
+
+    server.on("/api/wifi/scan", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (wifiMode != "fallback_ap") {
+            sendError(request, 409, "Wi-Fi recovery is not active");
+            return;
+        }
+        int count = WiFi.scanNetworks(false, true);
+        JsonDocument doc;
+        doc["ok"] = true;
+        JsonArray networks = doc["networks"].to<JsonArray>();
+        if (count > 0) {
+            for (int i = 0; i < count; ++i) {
+                JsonObject network = networks.add<JsonObject>();
+                network["ssid"] = WiFi.SSID(i);
+                network["rssi"] = WiFi.RSSI(i);
+                network["channel"] = WiFi.channel(i);
+                network["secure"] = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
+            }
+        }
+        WiFi.scanDelete();
+        sendJson(request, doc);
+    });
+
+    server.on("/api/wifi/clear", HTTP_POST, [](AsyncWebServerRequest* request) {
+        if (wifiMode != "fallback_ap") {
+            sendError(request, 409, "Wi-Fi recovery is not active");
+            return;
+        }
+        wifiPreferences.remove("ssid");
+        wifiPreferences.remove("password");
+        WIFI_SSID = "";
+        WIFI_PASSWORD = "";
+        activeWiFiSSID = "";
+        activeWiFiPassword = "";
+        hasSavedWiFiCredentials = false;
+        wifiLastFailure = "";
+        JsonDocument doc;
+        doc["ok"] = true;
+        doc["message"] = "Saved Wi-Fi credentials cleared.";
+        sendJson(request, doc);
+    });
 
     server.on("/api/auth/login", HTTP_POST, [](AsyncWebServerRequest* request) {}, nullptr,
         [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
@@ -542,7 +591,7 @@ void setup() {
         [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
             static String body;
             if (wifiMode != "fallback_ap") {
-                if (index + len == total) sendError(request, 409, "Wi-Fi setup is only available in fallback mode");
+                if (index + len == total) sendError(request, 409, "Wi-Fi setup is only available in recovery mode");
                 return;
             }
             if (index == 0) body = "";
