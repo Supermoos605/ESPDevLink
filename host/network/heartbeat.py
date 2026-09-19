@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import socket
 import subprocess
 import time
@@ -122,6 +123,13 @@ def main() -> None:
     print(f"PC IP:   {get_local_ip()}")
     print(f"ESPLink: {ESP32_URL}")
     print(f"Accept connections: {'yes' if ALLOW_CONNECTIONS else 'no'}")
+    mode = os.environ.get("ESPLINK_CONNECTION_MODE", "AUTOMATIC").upper()
+    if mode in {"REMOTE", "FORCE_REMOTE"}:
+        print(f"Connection mode: {mode}")
+        print("Remote mode: LAN/mDNS heartbeat to the ESP32 is skipped.")
+        print("The Quick Tunnel + KeyVal rendezvous handles the remote path.")
+        return
+
     print("Starting heartbeat...\n")
 
     while True:
