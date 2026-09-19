@@ -13,7 +13,7 @@ import subprocess
 from .api import HostAPI
 from .config import AUTHORIZATION_CODE, COMPUTER_NAME, CORS_ORIGINS
 
-HOST = "0.0.0.0"
+HOST = "127.0.0.1"
 PORT = 8765
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
@@ -274,8 +274,8 @@ def main():
                 print(f"[HEALTH] Monitor warning: {exc}")
 
     threading.Thread(target=health_watchdog, name="host-health-watchdog", daemon=True).start()
-    print(f"ESPLink Windows Host: http://0.0.0.0:{PORT}")
-    print("Browser UI: http://<PC-IP>:8765/")
+    print(f"ESPLink Windows Host: http://127.0.0.1:{PORT}")
+    print("Remote transport: Cloudflare Quick Tunnel")
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()
