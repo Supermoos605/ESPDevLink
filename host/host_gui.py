@@ -1084,7 +1084,7 @@ class ESPDevLinkGUI(tk.Tk):
             from .config import ESP32_URL
             esp32_url = ESP32_URL
         except ImportError:
-            esp32_url = "http://steamlink.local"
+            esp32_url = ""
         mode = self.connection_mode.get().upper()
         self.network_vars["hostname"].set(hostname)
         self.network_vars["ip"].set(ip)
