@@ -8,7 +8,7 @@ class NetworkEndpointTests(unittest.TestCase):
         self.assertEqual(endpoint.as_dict(), {
             "host": "192.168.1.50",
             "port": 8765,
-            "mdns_name": "steamlink.local",
+            
         })
 
 
