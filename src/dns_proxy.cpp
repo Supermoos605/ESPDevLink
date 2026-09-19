@@ -3,6 +3,7 @@
 #include <WiFiUdp.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include "../include/espdevlink_secrets.h"
 
 
 namespace {
@@ -172,7 +173,7 @@ void processDNS() {
 
         // Responses from the upstream resolver are relayed to the original
         // iPad/client. Client queries arrive from the ESPDevLink AP subnet.
-        if (dnsStarted && remoteIP != NAT_AP_IP && remoteIP != NAT_AP_LEASE_START &&
+        if (dnsStarted && remoteIP != ip && remoteIP != IPAddress(ip[0], ip[1], ip[2], static_cast<uint8_t>(ip[3] + 1)) &&
             remoteIP == upstreamDNS) {
             if (forwardResponse(packet, static_cast<size_t>(length))) continue;
         }
@@ -206,7 +207,7 @@ void dnsTask(void*) {
         if (!dnsStarted) {
             // Wait until the NAT AP has actually been created by main.cpp.
             IPAddress apIP = WiFi.softAPIP();
-            if (apIP == NAT_AP_IP) {
+            if (apIP == ip) {
                 upstreamDNS = WiFi.status() == WL_CONNECTED ? WiFi.dnsIP(0) : IPAddress(0, 0, 0, 0);
                 if (WiFi.status() == WL_CONNECTED && upstreamDNS == IPAddress(0, 0, 0, 0)) {
                     upstreamDNS = IPAddress(1, 1, 1, 1);
@@ -215,13 +216,13 @@ void dnsTask(void*) {
                 if (dnsUDP.begin(DNS_PORT)) {
                     dnsStarted = true;
                     Serial.print("ESPDevLink DNS proxy started on ");
-                    Serial.print(NAT_AP_IP);
+                    Serial.print(ip);
                     Serial.print(":53; upstream DNS: ");
                     if (upstreamDNS == IPAddress(0, 0, 0, 0)) Serial.println("none (recovery mode)");
                     else Serial.println(upstreamDNS);
                 }
             }
-        } else if (WiFi.softAPIP() != NAT_AP_IP) {
+        } else if (WiFi.softAPIP() != ip) {
             dnsUDP.stop();
             dnsStarted = false;
         } else {
