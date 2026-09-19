@@ -11,11 +11,7 @@ import os
 import subprocess
 
 from .api import HostAPI
-from .config import (
-    AUTHORIZATION_CODE,
-    COMPUTER_NAME,
-    CORS_ORIGINS,
-)
+from .config import AUTHORIZATION_CODE, COMPUTER_NAME, CORS_ORIGINS
 
 HOST = "0.0.0.0"
 PORT = 8765
@@ -34,49 +30,6 @@ CONTENT_TYPES = {
     ".svg": "image/svg+xml",
     ".ico": "image/x-icon",
 }
-
-
-""HTTP control and browser server for the ESPLink Windows host."""
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
-import json
-import threading
-import time
-from collections import defaultdict, deque
-from secrets import token_urlsafe
-from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
-import os
-import subprocess
-
-from .api import HostAPI
-from .config import (
-    ESP32_URL,
-    AUTHORIZATION_CODE,
-    COMPUTER_NAME,
-    HEARTBEAT_SECONDS,
-    CORS_ORIGINS,
-)
-
-HOST = "0.0.0.0"
-PORT = 8765
-ROOT_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT_DIR / "data"
-api = HostAPI()
-_auth_attempts = defaultdict(deque)
-_AUTH_WINDOW_SECONDS = 60
-_AUTH_MAX_ATTEMPTS = 10
-
-CONTENT_TYPES = {
-    ".html": "text/html; charset=utf-8",
-    ".js": "application/javascript; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".json": "application/json; charset=utf-8",
-    ".svg": "image/svg+xml",
-    ".ico": "image/x-icon",
-}
-
 
 class HostHandler(BaseHTTPRequestHandler):
     def send_json(self, payload, status=200):
@@ -267,7 +220,7 @@ class HostHandler(BaseHTTPRequestHandler):
                 else:
                     api.host.status_model.update(game=game_definition.name)
                 api.start_stream()
-                self.send_json({"ok": True, "pc": api.status()["host"]["name"], "ip": api.status()["network"]["host"], "state": "CONNECTING", "game": game_definition.name})
+                self.send_json({"ok": True, "pc": api.status()["host"]["name"], "state": "CONNECTING", "game": game_definition.name})
             elif path in {"/api/host/stream/start", "/api/stream/begin"}:
                 self.send_json(api.start_stream())
             elif path in {"/api/host/stream/stop", "/api/stream/disconnect"}:
