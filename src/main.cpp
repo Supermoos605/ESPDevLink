@@ -213,9 +213,9 @@ bool startNATAP() {
     // currently selected channel.
     const uint8_t apChannel = WiFi.channel();
 
-    // The fourth AP config argument is the DHCP lease start address and the
-    // fifth is the DNS server advertised to AP clients. Without an explicit
-    // DNS server, an iPad can reach 192.168.4.1 but cannot resolve domains.
+    // Advertise the ESP32 itself as DNS so local names such as "steamlink"
+    // can resolve to the ESPDevLink gateway. The DNS proxy forwards all
+    // other names to the upstream resolver.
     IPAddress upstreamDNS = WiFi.dnsIP(0);
     if (upstreamDNS == IPAddress(0, 0, 0, 0)) {
         upstreamDNS = IPAddress(1, 1, 1, 1);
@@ -226,7 +226,7 @@ bool startNATAP() {
             NAT_AP_IP,
             NAT_AP_SUBNET,
             NAT_AP_LEASE_START,
-            upstreamDNS)) {
+            NAT_AP_IP)) {
         Serial.println("NAT AP IP/DHCP/DNS configuration failed.");
         return false;
     }
@@ -250,6 +250,8 @@ bool startNATAP() {
     Serial.print("  Upstream STA address: ");
     Serial.println(WiFi.localIP());
     Serial.print("  AP DHCP DNS: ");
+    Serial.println(NAT_AP_IP);
+    Serial.print("  Upstream DNS: ");
     Serial.println(upstreamDNS);
 
     if (!WiFi.AP.enableNAPT(true)) {
