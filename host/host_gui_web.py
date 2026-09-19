@@ -245,8 +245,6 @@ class HostControlAPI:
                     stopped += 1
             self._append_output(f"[Control Center] Stopped {stopped} tracked process(es).")
             return f"Stopped {stopped} tracked process(es)."
-        if name == "heartbeat":
-            return self._start([py, "-u", "-m", "host.network.heartbeat"], "Network heartbeat")
         if name == "simulator":
             return self._start([py, "-u", "simulator/esp_link_simulator.py"], "Simulator")
         if name == "tests":
@@ -346,7 +344,6 @@ class HostControlAPI:
             "computer": socket.gethostname(),
             "ip": self._local_ip(),
             "esp32": os.environ.get("ESPLINK_ESP32", ""),
-            "mode": os.environ.get("ESPLINK_CONNECTION_MODE", "AUTOMATIC"),
             "stream": {},
         }
         try:
@@ -386,14 +383,6 @@ class HostControlAPI:
         message = "Opened ESP32 interface at "
         self._append_output("[Control Center] " + message)
         return message
-
-    def set_mode(self, mode):
-        mode = mode.strip().upper()
-        if mode not in {"AUTOMATIC", "REMOTE", "FORCE_REMOTE"}:
-            return "Invalid connection mode."
-        os.environ["ESPLINK_CONNECTION_MODE"] = mode
-        self.action("stop")
-        return self.action("start") + f" Mode set to {mode}."
 
     def schedule(self, value):
         import re
