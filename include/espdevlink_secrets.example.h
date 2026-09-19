@@ -19,8 +19,5 @@
 #define ESPDEVLINK_ACCESS_CODE "YOUR_ACCESS_CODE"
 #define ESPDEVLINK_KEYVAL_KEY "CHANGE_ME_TO_A_LONG_RANDOM_KEY"
 
-// ESPDevLink client/recovery gateway IPv4 address. The AP uses a /24 subnet.
-#define ESPDEVLINK_AP_IP_1 192
-#define ESPDEVLINK_AP_IP_2 168
-#define ESPDEVLINK_AP_IP_3 4
-#define ESPDEVLINK_AP_IP_4 1
+// ESPDevLink client/recovery AP gateway address. The AP uses a /24 subnet.
+#define ESPDEVLINK_AP_IP "192.168.4.1"
