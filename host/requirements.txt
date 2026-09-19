@@ -7,3 +7,6 @@ av>=14,<17
 dxcam>=0.0.5
 # Windows WASAPI loopback audio capture.
 soundcard>=0.2,<0.3
+
+# Browser-rendered Windows control center.
+pywebview>=5.4,<7

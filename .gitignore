@@ -12,3 +12,7 @@ __pycache__/
 /include/espdevlink_secrets.py
 
 host/local_config.py
+
+# Local Windows app build outputs
+/bin/
+/build/
