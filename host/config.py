@@ -15,7 +15,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-DEFAULT_ESP32_URL = "http://steamlink.local"
+DEFAULT_ESP32_URL = ""
 DEFAULT_HEARTBEAT_SECONDS = 2
 DEFAULT_COMPUTER_NAME = socket.gethostname()
 DEFAULT_CAPTURE_FPS = 30
