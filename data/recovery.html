@@ -41,7 +41,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <div class="eyebrow">Recovery mode</div>
 <h2>Let's get ESPDevLink back online.</h2>
 <p>The ESP32 could not connect to its configured Wi-Fi network. Choose a network below, enter its password, and ESPDevLink will save the settings and restart.</p>
-<div class="notice"><strong>Recovery network:</strong> ESPDev-Recovery &nbsp;·&nbsp; <strong>Gateway:</strong> 192.168.4.1</div>
+<div class="notice"><strong>Recovery network:</strong> ESPDev-Recovery &nbsp;·&nbsp; <strong>Gateway:</strong> 192.168.4.1</div><div class="notice" id="failure" style="display:none"></div>
 </section>
 <section class="panel">
 <div class="scan-row"><div><h3>Wi-Fi network</h3><div class="saved" id="saved">No saved network</div></div><button class="secondary" id="scan" type="button">SCAN</button></div>
@@ -56,6 +56,18 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <script>
 const $=id=>document.getElementById(id);
 async function api(url,options={}){const r=await fetch(url,{...options,cache:'no-store'});const j=await r.json();if(!r.ok||j.ok===false)throw new Error(j.error||'Request failed');return j}
+async function loadStatus(){
+ try{
+  const s=await api('/api/status');
+  const box=$('failure');
+  if(s.wifi_failure){
+   box.style.display='block';
+   let attempted=s.wifi_last_attempt_ssid?' Network: <strong>'+s.wifi_last_attempt_ssid+'</strong>.':'';
+   box.innerHTML='<strong>Last connection attempt failed.</strong> '+s.wifi_failure+attempted;
+  }
+  if(s.wifi_ssid) $('saved').textContent='Saved network: '+s.wifi_ssid;
+ }catch(e){}
+}
 async function scan(){
  $('scan').disabled=true;$('scan').textContent='SCANNING...';$('status').textContent='Looking for nearby 2.4 GHz networks...';$('status').className='status';
  try{
@@ -81,7 +93,9 @@ $('clear').onclick=async()=>{
  catch(e){$('status').textContent=e.message;$('status').className='status error';$('clear').disabled=false}
 };
 $('scan').onclick=scan;
+loadStatus();
 scan();
+setInterval(loadStatus,3000);
 </script>
 </body>
 </html>
