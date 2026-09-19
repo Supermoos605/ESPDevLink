@@ -345,7 +345,7 @@ class HostControlAPI:
             "host_online": False,
             "computer": socket.gethostname(),
             "ip": self._local_ip(),
-            "mdns": "steamlink.local",
+            "esp32": os.environ.get("ESPLINK_ESP32", ""),
             "mode": os.environ.get("ESPLINK_CONNECTION_MODE", "AUTOMATIC"),
             "stream": {},
         }
