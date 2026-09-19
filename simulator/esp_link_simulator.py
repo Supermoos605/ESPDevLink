@@ -18,7 +18,7 @@ CONFIG = Path(__file__).resolve().parent / "config.json"
 def load_config():
     defaults = {
         "host": {"name": socket.gethostname(), "ip": "auto", "online": True, "game": "", "stream": "Ready"},
-        "gateway": {"mdns": "steamlink.local", "wifi": -42, "bind_host": "0.0.0.0", "port": 8080},
+        "gateway": {"wifi": -42, "bind_host": "0.0.0.0", "port": 8080},
         "security": {"authorization_code": "CHANGE-ME"},
         "heartbeat_required": False,
         "heartbeat_timeout_seconds": 5,
@@ -154,7 +154,6 @@ class Handler(BaseHTTPRequestHandler):
             self.json_response({
                 "status": "online",
                 "ip": state["ip"],
-                "mdns": config["gateway"].get("mdns", "steamlink.local"),
                 "wifi": config["gateway"].get("wifi", -42),
                 "authorization_required": True,
             })
@@ -305,7 +304,6 @@ def main(argv=None):
     print(f"PC name:   {state['name']}")
     print(f"PC IP:     {state['ip']}")
     print(f"PC online: {state['online']}")
-    print(f"mDNS name: {config['gateway'].get('mdns', 'steamlink.local')} (simulated)")
     print("Authorization: configured in simulator/config.json")
     print()
     print("Open the LAN URL from another device on the same network.")
