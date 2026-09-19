@@ -45,7 +45,7 @@ const char* RENDEZVOUS_DEVICE_ID = "gaming-pc";
 
 const char* MDNS_NAME = "steamlink";
 const char* FALLBACK_AP_NAME = "ESPDev-Recovery";
-const char* FALLBACK_AP_PASSWORD = "esp-link-setup";
+const char* FALLBACK_AP_PASSWORD = "WifiRecovery";
 
 // ESPDevLink client network. Configure the SSID/password in the private
 // include/espdevlink_secrets.h file so the real client network is not hard-coded.
