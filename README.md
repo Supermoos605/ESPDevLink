@@ -19,7 +19,7 @@ ESPLink/
 
 ESPLink has two main parts:
 
-- **ESP32 gateway:** serves the browser UI, provides local discovery through `steamlink.local`, and helps the browser find the Windows host.
+- **ESP32 gateway:** serves the browser UI, provides local discovery through `the ESP32 LAN address`, and helps the browser find the Windows host.
 - **Windows host:** actually runs the game, captures the desktop/audio, handles WebRTC signaling, and receives keyboard/mouse input.
 
 The ESP32 is therefore a **gateway, not the gaming computer**. The game continues running on the Windows PC; the phone/tablet only needs a compatible browser.
@@ -80,7 +80,7 @@ When the ESP32 is on the same LAN as the Windows PC:
 Phone/tablet browser
         |
         v
-   steamlink.local
+   the ESP32 LAN address
         |
         v
       ESP32
@@ -92,7 +92,7 @@ Phone/tablet browser
    Game + WebRTC
 ```
 
-Open `steamlink.local` in the browser and connect to the available host.
+Open `the ESP32 LAN address` in the browser and connect to the available host.
 
 The ESP32 handles the gateway/discovery side; the Windows host handles the actual stream.
 
@@ -259,7 +259,7 @@ The simulator binds to `0.0.0.0:8080` by default and prints both the local and L
 python simulator/esp_link_simulator.py --host 0.0.0.0 --port 8080
 ```
 
-Open the printed LAN URL from another device on the same network. The simulator's mDNS name is currently only simulated; real `steamlink.local` discovery will be provided by the ESP32 firmware.
+Open the printed LAN URL from another device on the same network. The simulator's mDNS name is currently only simulated; real `the ESP32 LAN address` discovery will be provided by the ESP32 firmware.
 
 In another terminal, point the heartbeat agent at the simulator:
 
